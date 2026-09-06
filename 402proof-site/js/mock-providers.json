@@ -1,0 +1,91 @@
+[
+  {
+    "provider_id": "x402org-public",
+    "label": "x402.org public facilitator",
+    "facilitator_base_url": "https://x402.org/facilitator",
+    "supported_url": "https://x402.org/facilitator/supported",
+    "verify_url": "https://x402.org/facilitator/verify",
+    "settle_url": "https://x402.org/facilitator/settle",
+    "known_declaration_url": "https://x402.org/facilitator/supported",
+    "networks": [
+      "eip155:84532",
+      "base-sepolia",
+      "solana-devnet",
+      "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+      "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe",
+      "aptos:2",
+      "stellar:testnet",
+      "hedera:testnet",
+      "xrpl:1"
+    ],
+    "last_seen": null,
+    "status": "DECLARATION_CAPTURED"
+  },
+  {
+    "provider_id": "payai",
+    "label": "PayAI facilitator",
+    "facilitator_base_url": "https://facilitator.payai.network",
+    "supported_url": "https://facilitator.payai.network/supported",
+    "verify_url": "https://facilitator.payai.network/verify",
+    "settle_url": "https://facilitator.payai.network/settle",
+    "known_declaration_url": "https://facilitator.payai.network/supported",
+    "networks": [
+      "base",
+      "base-sepolia",
+      "polygon",
+      "polygon-amoy",
+      "avalanche",
+      "avalanche-fuji",
+      "arbitrum",
+      "arbitrum-sepolia",
+      "sei",
+      "sei-testnet",
+      "xlayer",
+      "xlayer-testnet",
+      "skale-base",
+      "skale-base-sepolia",
+      "solana",
+      "solana-devnet"
+    ],
+    "last_seen": null,
+    "status": "DECLARATION_CAPTURED"
+  },
+  {
+    "provider_id": "x402.mikedotexe.com",
+    "label": "mikedotexe NEAR facilitator",
+    "facilitator_base_url": "https://x402.mikedotexe.com",
+    "supported_url": "https://x402.mikedotexe.com/supported",
+    "verify_url": "https://x402.mikedotexe.com/verify",
+    "settle_url": "https://x402.mikedotexe.com/settle",
+    "known_declaration_url": "https://x402.mikedotexe.com/supported",
+    "networks": [
+      "near:mainnet"
+    ],
+    "last_seen": "2026-09-04T17:03:32.029272+00:00",
+    "status": "DECLARATION_CAPTURED"
+  },
+  {
+    "provider_id": "nevermined",
+    "label": "Nevermined facilitator",
+    "facilitator_base_url": "https://facilitator.nevermined.app",
+    "supported_url": "https://facilitator.nevermined.app/supported",
+    "verify_url": null,
+    "settle_url": null,
+    "known_declaration_url": null,
+    "networks": [],
+    "last_seen": null,
+    "status": "NO_SUPPORTED_ENDPOINT"
+  },
+  {
+    "provider_id": "chainsafe",
+    "label": "ChainSafe facilitator",
+    "facilitator_base_url": "https://x402.chainsafe.io",
+    "supported_url": "https://x402.chainsafe.io/supported",
+    "verify_url": null,
+    "settle_url": null,
+    "known_declaration_url": null,
+    "networks": [],
+    "last_seen": null,
+    "status": "NO_SUPPORTED_ENDPOINT"
+  }
+]

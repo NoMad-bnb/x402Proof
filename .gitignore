@@ -1,0 +1,39 @@
+# Environment / secrets
+indexer/.env
+.env
+*.pem
+*.key
+*secret*
+
+# Python portable / site-packages
+indexer/python-portable/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Database
+indexer/indexer.db
+
+# Live indexer output
+indexer/a*_live_output.txt
+indexer/a*_live_output.log
+
+# Node / frontend
+node_modules/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Git
+.git/
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

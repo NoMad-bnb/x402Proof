@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>402Proof — Independent audit for x402 facilitators</title>
+  <meta name="description" content="402Proof is an independent verification and reputation layer for x402 facilitators. Claims are checked against chain evidence through GenLayer consensus.">
+  <link rel="icon" href="./assets/logo/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./css/fonts.css">
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/main.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="shell inner">
+      <a class="logo-link" href="#top" aria-label="402Proof home">
+        <img src="./assets/logo/lockup-horizontal-ink.svg" alt="402Proof" height="28" width="140">
+      </a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" id="menu-btn">Menu</button>
+      <nav class="nav" id="site-nav" aria-label="Primary">
+        <a href="#problem">The problem</a>
+        <a href="#stats">Stats</a>
+        <a href="#registry">Registry</a>
+        <a href="#evidence">Evidence</a>
+        <a href="#how">How it works</a>
+        <a href="#genlayer">GenLayer</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="shell">
+        <p class="hero-kicker">Independent verification · x402 ecosystem</p>
+        <h1>The chain is the source.</h1>
+        <p class="lede">
+          402Proof is an independent audit and reputation layer for x402 facilitators.
+          Facilitator claims are checked against blockchain evidence. Verdicts are produced
+          through GenLayer consensus, not a single trusted backend.
+        </p>
+        <div class="btn-row">
+          <a class="btn btn-primary" href="#registry">Explore Registry</a>
+          <a class="btn btn-ghost" href="#how">How it works</a>
+        </div>
+
+        <div class="sequence" aria-label="Verification sequence">
+          <span class="sequence-step">Claim</span>
+          <span class="sequence-arrow" aria-hidden="true">→</span>
+          <span class="sequence-step">Evidence</span>
+          <span class="sequence-arrow" aria-hidden="true">→</span>
+          <span class="sequence-step">Verification</span>
+          <span class="sequence-arrow" aria-hidden="true">→</span>
+          <span class="sequence-step">Proof</span>
+          <span class="sequence-arrow" aria-hidden="true">→</span>
+          <span class="sequence-step">Reputation</span>
+        </div>
+
+        <p class="hero-note">
+          <strong>What 402Proof is not:</strong> a facilitator, a wallet, or a settlement rail.
+          It observes settlement. It does not execute it.
+        </p>
+      </div>
+    </section>
+
+    <!-- The problem -->
+    <section class="section" id="problem">
+      <div class="shell">
+        <p class="section-label">Why 402Proof exists</p>
+        <h2>The facilitator is trusted. Nobody checks.</h2>
+        <p class="lede">
+          In the x402 protocol, a facilitator receives a signed payment authorization,
+          settles on chain, and tells the seller whether it succeeded or failed.
+          That answer is not verified by anyone independent.
+        </p>
+
+        <div class="problem-grid">
+          <div class="problem-card">
+            <h3>Did it settle?</h3>
+            <p>When a facilitator claims success or failure, there is no independent way to confirm the claim against the chain.</p>
+          </div>
+          <div class="problem-card">
+            <h3>Silent discrimination</h3>
+            <p>A facilitator could serve some clients and ignore others. Without a public evidence layer, that behaviour stays invisible.</p>
+          </div>
+          <div class="problem-card">
+            <h3>Declaration vs behaviour</h3>
+            <p>What a facilitator publishes about networks and addresses may not match what it actually does on chain.</p>
+          </div>
+        </div>
+
+        <p class="lede" style="margin-top: var(--space-6); margin-bottom: 0;">
+          402Proof answers these questions with chain evidence and independent consensus.
+          It does not replace the facilitator. It audits it.
+        </p>
+      </div>
+    </section>
+
+    <!-- Stats overview -->
+    <section class="section" id="stats">
+      <div class="shell">
+        <p class="section-label">Network snapshot</p>
+        <h2>Live statistics</h2>
+        <p class="lede">
+          Aggregated counts from the 402Proof indexer. Totals, verdict families, and
+          evidence sources are reported separately, never averaged into a single score.
+        </p>
+        <div class="stats" id="stats-grid" aria-live="polite">
+          <!-- Populated by app.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Facilitator Registry -->
+    <section class="section" id="registry">
+      <div class="shell">
+        <p class="section-label">Facilitator registry</p>
+        <h2>Observed facilitators</h2>
+        <p class="lede">
+          Providers tracked by 402Proof. Declaration status comes from active probes of
+          <span class="mono">/supported</span>. Identity and networks are taken from
+          published endpoints and measured behaviour, not from marketing pages alone.
+        </p>
+
+        <div class="data-banner" id="registry-banner" data-source="mock" role="status">
+          Loading registry…
+        </div>
+
+        <div class="registry-list" id="registry-list" aria-live="polite">
+          <div class="skeleton-row" aria-hidden="true"></div>
+          <div class="skeleton-row" aria-hidden="true"></div>
+          <div class="skeleton-row" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Evidence / Verification -->
+    <section class="section" id="evidence">
+      <div class="shell">
+        <p class="section-label">Evidence &amp; verification</p>
+        <h2>Verification records</h2>
+        <p class="lede">
+          402Proof does not assert trust with a single score. It publishes the evidence
+          and the verdict family that follows from it. Six families stay separate. They are never merged or averaged.
+        </p>
+
+        <div class="verdict-legend" aria-label="Verdict families">
+          <div class="verdict-item">
+            <span class="verdict v-confirmed">CONFIRMED</span>
+            <span>Claim and chain match</span>
+          </div>
+          <div class="verdict-item">
+            <span class="verdict v-contradicted">CONTRADICTED</span>
+            <span>Claim disagrees with chain</span>
+          </div>
+          <div class="verdict-item">
+            <span class="verdict v-settled">SETTLED_</span>
+            <span>Settled without a captured announcement</span>
+          </div>
+          <div class="verdict-item">
+            <span class="verdict v-rejected">REJECTED_</span>
+            <span>Claim refused; suffix states why</span>
+          </div>
+          <div class="verdict-item">
+            <span class="verdict v-pending">PENDING_</span>
+            <span>No final verdict yet</span>
+          </div>
+          <div class="verdict-item">
+            <span class="verdict v-undetermined">UNDETERMINED_</span>
+            <span>Problem on our side; never counts against the operator</span>
+          </div>
+        </div>
+
+        <div class="data-banner" id="evidence-banner" data-source="mock" role="status">
+          Loading evidence…
+        </div>
+
+        <div class="evidence-toolbar">
+          <label class="sr-only" for="evidence-search">Filter evidence</label>
+          <input
+            type="search"
+            id="evidence-search"
+            class="evidence-search"
+            placeholder="Filter by tx hash, provider, verdict, or source…"
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <span class="evidence-filter-count" id="evidence-filter-count" aria-live="polite"></span>
+        </div>
+
+        <div class="evidence-list" id="evidence-list" aria-live="polite">
+          <div class="skeleton-card" aria-hidden="true"></div>
+          <div class="skeleton-card" aria-hidden="true"></div>
+        </div>
+
+        <p class="lede" style="margin-top: var(--space-5); font-size: var(--text-sm); margin-bottom: 0;">
+          <strong>Absence is not a verdict.</strong> Pending stays pending until evidence is final.
+          Undetermined is never counted against the operator.
+        </p>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="section" id="how">
+      <div class="shell">
+        <p class="section-label">Architecture</p>
+        <h2>How 402Proof works</h2>
+        <p class="lede">
+          Observation, independent verification, then public record.
+          No step relies on trusting a single server’s word about what happened on chain.
+        </p>
+
+        <div class="flow">
+          <div class="flow-step">
+            <h3>Facilitator</h3>
+            <p>Receives a signed payment authorization and settles on chain, or claims it did.</p>
+          </div>
+          <div class="flow-step">
+            <h3>x402 claim</h3>
+            <p>A settlement response or a discovered candidate transaction becomes a claim to verify.</p>
+          </div>
+          <div class="flow-step">
+            <h3>Chain evidence</h3>
+            <p>Receipt, Transfer events, and EIP-3009 authorization data are read from the chain.</p>
+          </div>
+          <div class="flow-step">
+            <h3>GenLayer verification</h3>
+            <p>Independent validators each fetch the same evidence. Results must match byte-for-byte.</p>
+          </div>
+          <div class="flow-step">
+            <h3>Evidence record</h3>
+            <p>A durable verdict is written only when consensus holds. No match, no write.</p>
+          </div>
+          <div class="flow-step">
+            <h3>Public reputation</h3>
+            <p>Registry and verification data are published. Counts keep their denominators. No single score.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GenLayer -->
+    <section class="section" id="genlayer">
+      <div class="shell">
+        <p class="section-label">Independent verification</p>
+        <h2>Why GenLayer</h2>
+        <div class="genlayer-panel">
+          <div>
+            <p class="lede" style="margin-bottom: var(--space-4);">
+              A normal backend is one machine you are asked to trust. That would recreate the
+              same trust problem x402 already has, under a different name.
+            </p>
+            <p class="lede" style="margin-bottom: 0;">
+              GenLayer makes multiple independent validators each fetch the receipt themselves,
+              then compare results with <span class="mono">strict_eq</span>. If the bytes differ, nothing is written.
+              Independence is measured, not assumed.
+            </p>
+            <ul>
+              <li>What is checked: settlement claims against chain evidence (receipts, transfers, EIP-3009 authorization).</li>
+              <li>Judgment is deterministic. Language models are not part of settlement verdicts.</li>
+              <li>402Proof does not execute payments, hold funds, or send settlement transactions.</li>
+            </ul>
+          </div>
+          <div class="principle">
+            <h3>Design principle</h3>
+            <p>
+              <strong>The chain is the source. Everything else is a cache.</strong>
+            </p>
+            <p style="margin-top: var(--space-3);">
+              Independent reads must agree under <code>gl.eq_principle.strict_eq</code>.
+              The public record is derived from verified evidence, not from a private indexer’s opinion alone.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <div>
+        <div class="footer-brand">
+          <img src="./assets/logo/lockup-horizontal-ink.svg" alt="402Proof" height="24">
+        </div>
+        <p class="footer-copy">
+          Independent proof infrastructure for the x402 ecosystem.
+          Not a facilitator. Not a wallet. Not a settlement rail.
+        </p>
+      </div>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="#problem">The problem</a>
+        <a href="#how">How it works</a>
+        <a href="#genlayer">GenLayer</a>
+      </nav>
+    </div>
+  </footer>
+
+  <!-- Detail drawer -->
+  <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
+    <button type="button" class="drawer-close" id="drawer-close">Close</button>
+    <h2 id="drawer-title">Details</h2>
+    <div class="drawer-body" id="drawer-body"></div>
+  </aside>
+
+  <script src="./js/config.js"></script>
+  <script src="./js/api.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>

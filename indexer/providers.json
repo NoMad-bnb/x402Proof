@@ -1,0 +1,115 @@
+[
+  {
+    "provider_id": "x402org-public",
+    "label": "x402.org public facilitator",
+    "facilitator_base_url": "https://x402.org/facilitator",
+    "supported_url": "https://x402.org/facilitator/supported",
+    "verify_url": "https://x402.org/facilitator/verify",
+    "settle_url": "https://x402.org/facilitator/settle",
+    "known_declaration_url": "https://x402.org/facilitator/supported",
+    "networks": [
+      "eip155:84532",
+      "base-sepolia",
+      "solana-devnet",
+      "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+      "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe",
+      "aptos:2",
+      "stellar:testnet",
+      "hedera:testnet",
+      "xrpl:1"
+    ],
+    "last_seen": "2026-09-05T17:22:05.782621+00:00",
+    "status": "DECLARATION_CAPTURED"
+  },
+  {
+    "provider_id": "payai",
+    "label": "PayAI facilitator",
+    "facilitator_base_url": "https://facilitator.payai.network",
+    "supported_url": "https://facilitator.payai.network/supported",
+    "verify_url": "https://facilitator.payai.network/verify",
+    "settle_url": "https://facilitator.payai.network/settle",
+    "known_declaration_url": "https://facilitator.payai.network/supported",
+    "networks": [
+      "base",
+      "base-sepolia",
+      "polygon",
+      "polygon-amoy",
+      "avalanche",
+      "avalanche-fuji",
+      "arbitrum",
+      "arbitrum-sepolia",
+      "sei",
+      "sei-testnet",
+      "xlayer",
+      "xlayer-testnet",
+      "skale-base",
+      "skale-base-sepolia",
+      "solana",
+      "solana-devnet"
+    ],
+    "last_seen": "2026-09-05T17:21:16.339348+00:00",
+    "status": "DECLARATION_CAPTURED"
+  },
+  {
+    "provider_id": "x402.mikedotexe.com",
+    "label": "mikedotexe NEAR facilitator",
+    "facilitator_base_url": "https://x402.mikedotexe.com",
+    "supported_url": "https://x402.mikedotexe.com/supported",
+    "verify_url": "https://x402.mikedotexe.com/verify",
+    "settle_url": "https://x402.mikedotexe.com/settle",
+    "known_declaration_url": "https://x402.mikedotexe.com/supported",
+    "networks": [
+      "near:mainnet"
+    ],
+    "last_seen": "2026-09-05T17:22:21.913881+00:00",
+    "status": "DECLARATION_CAPTURED"
+  },
+  {
+    "provider_id": "nevermined",
+    "label": "Nevermined facilitator",
+    "facilitator_base_url": "https://facilitator.nevermined.app",
+    "supported_url": "https://facilitator.nevermined.app/supported",
+    "verify_url": null,
+    "settle_url": null,
+    "known_declaration_url": null,
+    "networks": [],
+    "last_seen": "2026-09-05T17:28:03.606319+00:00",
+    "status": "NO_SUPPORTED_ENDPOINT"
+  },
+  {
+    "provider_id": "chainsafe",
+    "label": "ChainSafe facilitator",
+    "facilitator_base_url": "https://x402.chainsafe.io",
+    "supported_url": "https://x402.chainsafe.io/supported",
+    "verify_url": null,
+    "settle_url": null,
+    "known_declaration_url": null,
+    "networks": [],
+    "last_seen": "2026-09-05T17:29:55.125047+00:00",
+    "status": "NO_SUPPORTED_ENDPOINT"
+  },
+  {
+    "provider_id": "polygon-facilitator",
+    "label": "Polygon facilitator (candidate)",
+    "facilitator_base_url": "https://x402.polygon.technology",
+    "supported_url": "https://x402.polygon.technology/supported",
+    "verify_url": null,
+    "settle_url": null,
+    "known_declaration_url": null,
+    "networks": [],
+    "last_seen": "2026-09-05T17:22:47.410542+00:00",
+    "status": "DECLARATION_CAPTURED"
+  },
+  {
+    "provider_id": "cdp-coinbase",
+    "label": "Coinbase CDP facilitator (candidate)",
+    "facilitator_base_url": "https://api.cdp.coinbase.com/platform/v2/x402",
+    "supported_url": "https://api.cdp.coinbase.com/platform/v2/x402/supported",
+    "verify_url": null,
+    "settle_url": null,
+    "known_declaration_url": null,
+    "networks": [],
+    "last_seen": "2026-09-05T17:22:58.392643+00:00",
+    "status": "GATED_REQUIRES_CREDENTIALS"
+  }
+]
