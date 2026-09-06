@@ -21,7 +21,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -221,6 +221,38 @@ def get_evidence(chain_id: str, transaction_hash: str):
     if not results:
         raise HTTPException(status_code=404, detail="no evidence found for this transaction")
     return results
+
+
+@app.post("/ingest/providers")
+def ingest_providers(payload: dict):
+    """Accept provider records from the local indexer."""
+    providers = payload.get("providers", [])
+    if db is None:
+        raise HTTPException(status_code=503, detail="database not available")
+    inserted = 0
+    for provider in providers:
+        try:
+            db.upsert_provider(provider)
+            inserted += 1
+        except Exception:
+            pass
+    return {"ingested": inserted}
+
+
+@app.post("/ingest/evidence")
+def ingest_evidence(payload: dict):
+    """Accept evidence records from the local indexer."""
+    records = payload.get("records", [])
+    if db is None:
+        raise HTTPException(status_code=503, detail="database not available")
+    inserted = 0
+    for record in records:
+        try:
+            db.insert_evidence(record)
+            inserted += 1
+        except Exception:
+            pass
+    return {"ingested": inserted}
 
 
 @app.get("/stats")

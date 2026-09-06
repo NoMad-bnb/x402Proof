@@ -111,6 +111,7 @@ def add_provider(
     _validate(entry)
     entries.append(entry)
     save_registry(entries, path)
+    _push_provider_to_api(entry)
     return entry
 
 
@@ -130,8 +131,26 @@ def update_status(provider_id: str, status: str, path: str = REGISTRY_PATH) -> d
                     db_module.upsert_provider(entry)
             except Exception:
                 pass
+
+            _push_provider_to_api(entry)
             return entry
     raise ValueError("provider_id not found: " + provider_id)
+
+
+def _push_provider_to_api(entry: dict) -> None:
+    """Optionally push provider to a remote API endpoint."""
+    api_url = os.environ.get("X402_API_URL", "").rstrip("/")
+    if not api_url:
+        return
+    try:
+        import requests
+        requests.post(
+            f"{api_url}/ingest/providers",
+            json={"providers": [entry]},
+            timeout=10,
+        )
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

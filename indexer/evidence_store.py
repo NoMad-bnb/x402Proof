@@ -157,11 +157,30 @@ def store_evidence(summary, path=None):
     except Exception:
         pass
 
+    # Also push to remote API if configured
+    _push_evidence_to_api(entry)
+
     return {
         "status": "EVIDENCE_STORED",
         "evidenceKey": key,
         "evidenceDigest": digest,
     }
+
+
+def _push_evidence_to_api(entry: dict) -> None:
+    """Optionally push evidence to a remote API endpoint."""
+    api_url = os.environ.get("X402_API_URL", "").rstrip("/")
+    if not api_url:
+        return
+    try:
+        import requests
+        requests.post(
+            f"{api_url}/ingest/evidence",
+            json={"records": [entry]},
+            timeout=10,
+        )
+    except Exception:
+        pass
 
 
 def _run_self_test() -> None:
