@@ -397,11 +397,11 @@ def _row_to_evidence(row) -> dict:
     evidence_key = record.get("evidence_key")
     if isinstance(evidence_key, str):
         try:
-            record["evidenceKey"] = json.loads(evidence_key)
+            record["evidence_key"] = json.loads(evidence_key)
         except json.JSONDecodeError:
-            record["evidenceKey"] = {}
+            record["evidence_key"] = {}
     else:
-        record["evidenceKey"] = {}
+        record["evidence_key"] = {}
     summary = record.get("summary")
     if isinstance(summary, str):
         try:
@@ -410,13 +410,10 @@ def _row_to_evidence(row) -> dict:
             record["summary"] = {}
     else:
         record["summary"] = {}
-    for key in ["evidence_key", "evidence_digest", "summary", "chain_id",
-                "provider_id", "audit_verdict", "evidence_source", "evidence_store_status"]:
-        record.pop(key, None)
-    record.setdefault("schemaVersion", record.get("schema_version", 1))
-    record.setdefault("storedAt", record.get("stored_at"))
-    record.setdefault("evidenceDigest", record.get("evidence_digest"))
-    record.setdefault("evidenceStoreStatus", record.get("evidence_store_status"))
+    record.setdefault("schema_version", record.get("schema_version", 1))
+    record.setdefault("stored_at", record.get("stored_at"))
+    record.setdefault("evidence_digest", record.get("evidence_digest"))
+    record.setdefault("evidence_store_status", record.get("evidence_store_status"))
     return record
 
 

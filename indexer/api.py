@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 app = FastAPI(
     title="x402 Trust Layer API",
@@ -58,11 +58,17 @@ class ProviderResponse(BaseModel):
 
 
 class EvidenceRecordResponse(BaseModel):
-    schema_version: int
+    schema_version: int = 1
     stored_at: str
     evidence_key: dict
     evidence_digest: str
     summary: dict
+    chain_id: str | None = None
+    provider_id: str | None = None
+    audit_verdict: str | None = None
+    evidence_source: str | None = None
+    evidence_store_status: str | None = None
+    transaction_hash: str | None = None
 
 
 def _load_providers() -> list:
