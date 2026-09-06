@@ -291,6 +291,11 @@ def collect_and_audit(
         summary["verificationStatus"] = verification_record.get("verificationStatus")
         summary["verificationRecord"] = verification_record
         anchor_block = verification_record.get("anchorBlock") or ""
+        if isinstance(anchor_block, str) and anchor_block.startswith("0x"):
+            try:
+                anchor_block = str(int(anchor_block, 16))
+            except ValueError:
+                anchor_block = ""
 
     audit_record = submit_x402_audit(
         facilitator_label=provider["label"],

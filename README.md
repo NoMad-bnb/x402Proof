@@ -1,4 +1,4 @@
-# x402Proof
+﻿# x402Proof
 
 **Independent audit and reputation layer for x402 facilitators.**
 
@@ -31,7 +31,7 @@ Without independent verification, the seller must either trust the facilitator b
 **x402Proof** is an independent audit and reputation layer for x402 facilitators, built on **GenLayer**.
 
 ```
-Facilitator → Settlement → Blockchain → Independent Auditors (GenLayer) → Verified Evidence → Reputation
+Facilitator -> Settlement -> Blockchain -> Independent Auditors (GenLayer) -> Verified Evidence -> Reputation
 ```
 
 The facilitator executes settlement as usual. An external indexer discovers candidate transactions. **GenLayer independently verifies the on-chain proof**, and the resulting immutable record feeds reputation scores, an API, and a public dashboard.
@@ -86,25 +86,25 @@ A static, framework-free frontend displays the registry and evidence. It connect
 ## Architecture
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
-│   Facilitator   │────▶│  Blockchain      │────▶│  GenLayer Validators│
-│                 │     │  (Base Sepolia)  │     │  (Independent)      │
-└─────────────────┘     └──────────────────┘     └─────────┬───────────┘
-        │                                                    │
-        │                                                    │ byte-by-byte
-        │                                                    │ consensus
-        ▼                                                    ▼
-┌─────────────────┐                                 ┌─────────────────────┐
-│  x402 Payment   │                                 │  Verified Evidence  │
-│  Request / Resp │                                 │  + Reputation       │
-└─────────────────┘                                 └─────────┬───────────┘
-                                                             │
-                                          ┌────────────────┴────────────────┐
-                                          │                                 │
-                                    ┌─────▼─────┐                   ┌──────▼──────┐
-                                    │   API     │                   │  Dashboard  │
-                                    │ (FastAPI) │                   │  (Static)   │
-                                    └───────────┘                   └────────────┘
++-----------------+     +------------------+     +---------------------+
+|   Facilitator   |---->|  Blockchain      |---->|  GenLayer Validators|
+|                 |     |  (Base Sepolia)  |     |  (Independent)      |
++-----------------+     +------------------+     +----------+----------+
+        |                                                    |
+        |                                                    | byte-by-byte
+        |                                                    | consensus
+        v                                                    v
++-----------------+                                 +---------------------+
+|  x402 Payment   |                                 |  Verified Evidence  |
+|  Request / Resp |                                 |  + Reputation       |
++-----------------+                                 +----------+----------+
+                                                             |
+                                          +----------------+----------------+
+                                          |                                 |
+                                    +-----v-----+                   +-------v------+
+                                    |   API     |                   |  Dashboard   |
+                                    | (FastAPI) |                   |  (Static)    |
+                                    +-----------+                   +--------------+
 ```
 
 ---
@@ -113,34 +113,47 @@ A static, framework-free frontend displays the registry and evidence. It connect
 
 ```
 x402Proof/
-├── README.md                    # Project overview and vision
-├── .gitignore                   # Privacy and build exclusions
-│
-├── x402Proof/                   # GenLayer smart contracts
-│   ├── x402_auditor_v8.py       # Settlement vs. claim verification
-│   ├── supported_probe.py       # Active /supported endpoint checker
-│   └── declaration_audit.py     # Declaration vs. on-chain behavior
-│
-├── indexer/                     # External discovery, evidence, and API
-│   ├── api.py                   # FastAPI service
-│   ├── database.py              # SQLite evidence store
-│   ├── claim_builder.py         # Claim construction
-│   ├── settlement_hash_extractor.py
-│   ├── rpc_transfer_scanner.py
-│   ├── rpc_verification_adapter.py
-│   ├── http_evidence_collector.py
-│   ├── provider_discovery.py
-│   ├── consensus_observer.py
-│   ├── batch_evidence_capture.py
-│   ├── scheduler.py
-│   └── test_*.py                # Self-tests
-│
-└── 402proof-site/               # Public dashboard
-    ├── index.html
-    ├── css/
-    ├── js/
-    └── assets/
+|-- README.md                     # Project overview and vision
+|-- .gitignore                    # Privacy and build exclusions
+|
+|-- x402Proof/                    # GenLayer smart contracts
+|   |-- x402_auditor_v8.py        # Settlement vs. claim verification
+|   |-- supported_probe.py        # Active /supported endpoint checker
+|   |-- declaration_audit.py      # Declaration vs. on-chain behavior
+|
+|-- indexer/                      # External discovery, evidence, and API
+|   |-- api.py                    # FastAPI service (deployed on Render)
+|   |-- database.py               # SQLite/PostgreSQL evidence store
+|   |-- claim_builder.py          # Claim construction
+|   |-- settlement_hash_extractor.py
+|   |-- rpc_transfer_scanner.py
+|   |-- rpc_verification_adapter.py
+|   |-- http_evidence_collector.py
+|   |-- provider_discovery.py
+|   |-- consensus_observer.py
+|   |-- batch_evidence_capture.py
+|   |-- scheduler.py
+|   |-- test_*.py                 # Self-tests
+|
+|-- 402proof-site/                # Public dashboard
+    |-- index.html
+    |-- css/
+    |-- js/
+    |   |-- config.js              # API endpoint and environment labels
+    |   |-- api.js                 # Data layer with API client + mock fallback
+    |   |-- app.js                 # UI rendering
+    |-- assets/
+        |-- fonts/  logo/  icons/  graphics/
 ```
+
+---
+
+## Live
+
+- **Dashboard:** https://x402-proof.vercel.app/
+- **API:** https://x402proof-api.onrender.com/
+- **Contracts:** GenLayer Studio
+- **Chain data source:** Base Sepolia via RPC
 
 ---
 
@@ -148,21 +161,61 @@ x402Proof/
 
 | Component | Status |
 |-----------|--------|
-| Smart contracts (GenLayer) | Live-tested on Base Sepolia; consensus verified |
-| Indexer | Discovery, evidence capture, and claim building complete and tested |
-| API | Built and tested locally; frontend connection pending |
-| Dashboard | Complete static implementation |
+| Smart contracts (GenLayer) | 3 contracts live on GenLayer Studio; consensus verified |
+| Indexer | A1-A11 complete and tested |
+| API | Deployed on Render with PostgreSQL |
+| Dashboard | Live and connected to API |
 | Qualitative layer (LLM) | Planned for Phase D |
 | Incentives | Planned for later phase |
 
 ---
 
+## Example Output
+
+```json
+GET /facilitators
+[
+  {
+    "provider_id": "x402org-public",
+    "label": "x402.org",
+    "facilitator_base_url": "https://x402.org",
+    "supported_url": "https://x402.org/facilitator/supported",
+    "networks": ["eip155:84532"],
+    "status": "DECLARATION_CAPTURED"
+  }
+]
+```
+
+```json
+GET /stats
+{
+  "providers": {
+    "total": 7,
+    "by_status": {
+      "DECLARATION_CAPTURED": 4,
+      "NO_SUPPORTED_ENDPOINT": 2,
+      "GATED_REQUIRES_CREDENTIALS": 1
+    }
+  },
+  "evidence": {
+    "total": 0,
+    "by_verdict": {},
+    "by_source": {},
+    "by_chain": {}
+  }
+}
+```
+
+The dashboard never invents providers, verdicts, or endpoints. When the API is unreachable, it falls back to local mock data and clearly labels it as a development snapshot.
+
+---
+
 ## Roadmap
 
-1. **Database and API** — FastAPI backed by SQLite, with transparent derivable metrics.
-2. **Public Dashboard** — Search and browse registry, evidence, and reputation.
-3. **Qualitative Layer** — Optional LLM-based comparison of written promises vs. observed behavior, isolated from deterministic verdicts.
-4. **Incentives** — Bonding or complaint staking to prevent spam; GenLayer staking primitives under research.
+1. **Database and API**: FastAPI backed by SQLite/PostgreSQL, with transparent derivable metrics.
+2. **Public Dashboard**: Search and browse registry, evidence, and reputation.
+3. **Qualitative Layer**: Optional LLM-based comparison of written promises vs. observed behavior, isolated from deterministic verdicts.
+4. **Incentives**: Bonding or complaint staking to prevent spam; GenLayer staking primitives under research.
 
 ---
 

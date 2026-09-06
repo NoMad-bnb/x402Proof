@@ -1,4 +1,4 @@
-# Environment / secrets
+﻿# Environment / secrets
 indexer/.env
 .env
 *.pem
@@ -37,3 +37,7 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+
+# Local indexer data (synced to API)
+indexer/evidence.json
+indexer/providers.json
