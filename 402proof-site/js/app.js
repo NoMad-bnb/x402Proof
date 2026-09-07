@@ -221,6 +221,43 @@
   // —— Evidence (with client-side filter) ——
   let evidenceCache = [];
   let evidenceSource = "mock";
+  const PAGE_SIZE = 6;
+  let evidencePage = 1;
+
+  function renderEvidencePagination(totalItems) {
+    const listEl = document.getElementById("evidence-list");
+    let pager = document.getElementById("evidence-pager");
+    if (!pager) {
+      pager = document.createElement("div");
+      pager.id = "evidence-pager";
+      pager.style.display = "flex";
+      pager.style.flexWrap = "wrap";
+      pager.style.gap = "8px";
+      pager.style.justifyContent = "center";
+      pager.style.marginTop = "var(--space-5)";
+      listEl.insertAdjacentElement("afterend", pager);
+    }
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    if (evidencePage > totalPages) evidencePage = totalPages;
+    if (evidencePage < 1) evidencePage = 1;
+    pager.innerHTML = "";
+    for (let i = 1; i <= totalPages; i++) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = String(i);
+      btn.className = "chip" + (i === evidencePage ? " chip-status declared" : "");
+      btn.addEventListener("click", () => {
+        evidencePage = i;
+        const input = document.getElementById("evidence-search");
+        const q = (input && input.value ? input.value : "").trim().toLowerCase();
+        const filtered = evidenceCache.filter((rec) => matchesFilter(rec, q));
+        renderEvidenceList(filtered);
+        listEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      pager.appendChild(btn);
+    }
+    pager.hidden = totalPages <= 1;
+  }
 
   function extractEvidenceFields(rec) {
     const summary = rec.summary || {};
@@ -252,6 +289,7 @@
     if (!list.length) {
       container.innerHTML = `<div class="state-msg">No verification records match the current filter.</div>`;
       if (countEl) countEl.textContent = evidenceCache.length ? "0 matches" : "";
+      renderEvidencePagination(0);
       return;
     }
 
@@ -263,7 +301,9 @@
     }
 
     container.innerHTML = "";
-    list.forEach((rec) => {
+    const start = (evidencePage - 1) * PAGE_SIZE;
+    const pageItems = list.slice(start, start + PAGE_SIZE);
+    pageItems.forEach((rec) => {
       const { summary, key, vr, verdict, tx, evidenceDigest, storedAt } = extractEvidenceFields(rec);
       const chain = key.chainId || vr.chainId || "—";
 
@@ -313,6 +353,7 @@
 
       container.appendChild(row);
     });
+    renderEvidencePagination(list.length);
   }
 
   function applyEvidenceFilter() {
@@ -357,7 +398,10 @@
   // —— Search listener ——
   const searchInput = document.getElementById("evidence-search");
   if (searchInput) {
-    searchInput.addEventListener("input", applyEvidenceFilter);
+    searchInput.addEventListener("input", () => {
+      evidencePage = 1;
+      applyEvidenceFilter();
+    });
   }
 
   // —— Boot ——
