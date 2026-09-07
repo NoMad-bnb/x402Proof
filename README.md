@@ -20,7 +20,7 @@ The result is an immutable, reproducible evidence record that anyone can check w
 
 ## The Problem
 
-The **x402 protocol** (introduced by Coinbase and Cloudflare) revived the HTTP 402 status code to make payment a native step in HTTP requests. It is already processing hundreds of thousands of transactions.
+The **x402 protocol** (introduced by Coinbase and Cloudflare) revived the HTTP 402 status code to make payment a native step in HTTP requests. It is already being adopted by multiple facilitators across different networks.
 
 Within this protocol, the **Facilitator** plays a central role:
 
@@ -58,7 +58,7 @@ A normal backend is a **single machine you must trust**. If we told users "trust
 
 GenLayer lets **multiple independent validators** fetch the receipt themselves, then compare the result **byte-by-byte** via deterministic consensus. If they differ, nothing is written.
 
-This is the decentralization in this project, and it is **measured, not assumed**: five identical readings in the first trial, and successful consensus on every run afterward.
+This is the decentralization in this project, and it is **measured, not assumed**.
 
 **Language models remain optional and confined to a qualitative layer only (Phase D). They never adjudicate settlement.** All verdicts are deterministic.
 
@@ -138,7 +138,7 @@ Open any **Verification Record** in the side panel and use the built-in actions:
 
 - **View Base Sepolia Transaction** - opens the settlement on BaseScan.
 - **View GenLayer Audit** - opens the audit transaction on GenLayer Explorer.
-- **Verify Verdict On-Chain** - opens the `X402Auditor` contract with instructions to call `get_verdicts()` and match `claimTransaction` to the Base transaction.
+- **Verify Verdict On-Chain** - opens the `X402Auditor` contract on GenLayer Explorer, where you can call `get_verdicts()` and match `claimTransaction` to the Base transaction.
 
 If a button is disabled, the required transaction hash was not captured for that record.
 
@@ -224,4 +224,4 @@ Proprietary. All rights reserved.
 
 ## Status
 
-This project is **under active development**. The current version is a working prototype on Base Sepolia. Features, interfaces, and supported facilitators may change before the final release.
+This project is **under active development**. The current version is a working prototype on Base Sepolia and GenLayer Studio. Features, interfaces, and supported facilitators may change before the final release.
