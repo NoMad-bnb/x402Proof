@@ -1,41 +1,9 @@
 """Offline integration test for the contract's per-scheme amount semantics.
 
-The open technical items list records: "exact is implemented and tested,
-upto is written but not tested". This file closes the "upto not tested"
-gap WITHOUT touching the chain, the deployed contract, or any existing
-file. Zero network, zero gas, zero studio runs.
-
-How the contract is tested offline:
-
-x402_auditor_v8.py imports `from genlayer import *`, and the genlayer
-SDK is not installed in the portable Python. This test installs a stub
-module named "genlayer" into sys.modules BEFORE loading the contract
-file with importlib, so the import succeeds and the module-level pure
-functions become callable locally. The stub is inert: every attribute
-chain on it resolves to a do-nothing object, so no consensus/web/RPC
-behaviour is ever faked with real-looking data.
-
-Two functions inside the contract CANNOT run locally because they call
-gl.evm.decode / Keccak256 from the SDK:
-
-  decode_transfer(log)  - decodes Transfer event topics via gl.evm.decode
-  selector_hex(...)     - keccaks method signatures via Keccak256
-
-Both are monkeypatched HERE for the duration of the judge() scenarios,
-and restored afterwards. The decode patch parses exactly the topic/data
-format this test itself generates, so it adds no assumptions of its own.
-The Keccak256 patch returns a fixed hex digest, and the test builds its
-EIP-3009 calldata selector from that same patched function via
-selector_hex(), so both sides of the selector comparison agree. The
-gl.evm.decode layer itself is separately verified inside the studio
-and is NOT what this file tests.
-
-What IS tested here: amount_acceptable() directly, and the full
-judge() path that consumes it - proving that an "upto" settlement at
-or under the cap confirms, one over the cap or at zero rejects with
-REJECTED_AMOUNT_DOES_NOT_SATISFY_REQUIREMENT, and that "exact" still
-requires exact equality (regression guard against an upto-shaped
-loosening of exact).
+Verifies that:
+- "exact" requires exact equality
+- "upto" confirms at or under the cap, rejects at zero or over the cap
+- amount_acceptable() and judge() produce the right verdicts in both schemes
 """
 
 import importlib.util
@@ -45,8 +13,7 @@ import sys
 import types
 
 # Portable/embeddable Python does not add the running script's own
-# folder to sys.path; without this, sibling imports would fail
-# (handoff section 23, note 12).
+# folder to sys.path; without this, sibling imports would fail.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 CONTRACT_PATH = os.path.normpath(os.path.join(

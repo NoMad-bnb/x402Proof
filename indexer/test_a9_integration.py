@@ -315,7 +315,7 @@ def run_scenario_3():
 
 
 def run_scenario_4():
-    """Batch-settlement branch (handoff 18.26): zero gas, no verdict.
+    """Batch-settlement branch: zero gas, no verdict.
 
     The payment result carries scheme=batch-settlement. collect_and_audit()
     must route to capture_batch_settlement and NOT call get_client() (no

@@ -1,30 +1,8 @@
-"""Measure the current multi-Transfer behaviour of judge() in x402_auditor_v8.py.
+"""Offline test for the multi-Transfer behaviour of judge() in x402_auditor_v8.py.
 
-Handoff section 7 lists multiple Transfer events as an open technical item.
-This file does NOT change the contract. It measures what judge() currently
-does when the SAME settlement transaction contains MORE THAN ONE matching
-Transfer event, so the v12 fix (AMBIGUOUS_MULTIPLE_MATCHES) is designed
-against a measured fact instead of a guess.
-
-METHOD
------
-
-Same offline stub technique as test_upto_amount_semantics.py: install an
-inert "genlayer" stub, import the contract module with importlib, patch the
-two SDK-dependent functions (decode_transfer, Keccak256), and run judge()
-end to end. Zero network, zero gas, zero content writes.
-
-WHAT THE MEASUREMENT IS FOR
----------------------------
-
-The current judge() builds `settled` from every transfer that matches
-(asset + payee + payer + amount_acceptable), then silently uses `settled[0]`
-for the verdict (line ~451: record["settledAmount"] = settled[0]["amount"]).
-When two transfers in one transaction both match, `settled[0]` is the first
-in receipt-log order - chosen silently, with no flag telling the reader that
-a second match existed. That is exactly the "accidental match" risk.
-This test pins the current behaviour so v12's change is a documented,
-deliberate difference.
+Verifies what judge() currently does when a single settlement transaction
+contains more than one matching Transfer event, so the AMBIGUOUS_MULTIPLE_MATCHES
+fix is designed against a measured fact instead of a guess.
 """
 
 import importlib.util
