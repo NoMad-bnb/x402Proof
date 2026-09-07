@@ -94,7 +94,7 @@
     "UNDETERMINED",
   ];
 
-  function renderStats(payload, source) {
+  function renderStats(payload) {
     const grid = document.getElementById("stats-grid");
     if (!grid) return;
 
@@ -146,30 +146,20 @@
       </article>
     `;
 
-    grid.dataset.source = source === "mock" ? "mock" : "api";
+    grid.dataset.source = "api";
   }
 
   // —— Facilitators ——
-  function renderFacilitators(list, source) {
+  function renderFacilitators(list) {
     const container = document.getElementById("registry-list");
     const banner = document.getElementById("registry-banner");
 
-    if (source === "mock") {
-      setBanner(
-        banner,
-        "mock",
-        `${cfg.ENVIRONMENT_LABEL || "Development snapshot"} · ${list.length} facilitators · not live API`
-      );
+    const state = freshnessState(lastUpdateTime);
+    if (state === "stale") {
+      const age = formatAge(Date.now() - Date.parse(lastUpdateTime));
+      setBanner(banner, "offline", `Offline · last update ${age}`);
     } else {
-      const state = freshnessState(lastUpdateTime);
-      if (state === "fresh") {
-        setBanner(banner, "api", `Live API · ${list.length} facilitators`);
-      } else if (state === "stale") {
-        const age = formatAge(Date.now() - Date.parse(lastUpdateTime));
-        setBanner(banner, "offline", `Offline · last update ${age}`);
-      } else {
-        setBanner(banner, "api", `Live API · ${list.length} facilitators`);
-      }
+      setBanner(banner, "api", `Live API · ${list.length} facilitators`);
     }
 
     if (!list.length) {
@@ -228,7 +218,7 @@
 
   // —— Evidence (with client-side filter) ——
   let evidenceCache = [];
-  let evidenceSource = "mock";
+  let evidenceSource = "api";
   const ROWS_PER_PAGE_OPTIONS = [6, 10];
   let evidencePageSize = 6;
   let evidencePage = 1;
@@ -459,27 +449,17 @@
     renderEvidenceList(filtered);
   }
 
-  function renderEvidence(list, source) {
+  function renderEvidence(list) {
     const banner = document.getElementById("evidence-banner");
     evidenceCache = Array.isArray(list) ? list : [];
-    evidenceSource = source;
+    evidenceSource = "api";
 
-    if (source === "mock") {
-      setBanner(
-        banner,
-        "mock",
-        `${cfg.ENVIRONMENT_LABEL || "Development snapshot"} · ${list.length} record(s) · illustrative structure from indexer`
-      );
+    const state = freshnessState(lastUpdateTime);
+    if (state === "stale") {
+      const age = formatAge(Date.now() - Date.parse(lastUpdateTime));
+      setBanner(banner, "offline", `Offline · last update ${age}`);
     } else {
-      const state = freshnessState(lastUpdateTime);
-      if (state === "fresh") {
-        setBanner(banner, "api", `Live API · ${list.length} record(s)`);
-      } else if (state === "stale") {
-        const age = formatAge(Date.now() - Date.parse(lastUpdateTime));
-        setBanner(banner, "offline", `Offline · last update ${age}`);
-      } else {
-        setBanner(banner, "api", `Live API · ${list.length} record(s)`);
-      }
+      setBanner(banner, "api", `Live API · ${list.length} record(s)`);
     }
 
     applyEvidenceFilter();
@@ -546,9 +526,9 @@
       if (stats && stats.data && stats.data.last_update_time) {
         lastUpdateTime = stats.data.last_update_time;
       }
-      renderStats(stats.data, stats.source);
-      renderFacilitators(fac.data, fac.source);
-      renderEvidence(ev.data, ev.source);
+      renderStats(stats.data);
+      renderFacilitators(fac.data);
+      renderEvidence(ev.data);
     } catch (err) {
       console.error(err);
       document.getElementById("registry-list").innerHTML =
