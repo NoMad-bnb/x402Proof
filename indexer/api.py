@@ -300,6 +300,16 @@ def get_stats():
         store_status = e.get("evidenceStoreStatus", "UNKNOWN")
         store_status_counts[store_status] = store_status_counts.get(store_status, 0) + 1
     
+    last_update_time = None
+    for e in evidence:
+        stored = e.get("storedAt")
+        if stored and (last_update_time is None or str(stored) > str(last_update_time)):
+            last_update_time = stored
+    for p in providers:
+        seen = p.get("last_seen")
+        if seen and (last_update_time is None or str(seen) > str(last_update_time)):
+            last_update_time = seen
+
     return {
         "providers": {
             "total": len(providers),
@@ -312,6 +322,7 @@ def get_stats():
             "by_chain": chain_counts,
             "by_store_status": store_status_counts,
         },
+        "last_update_time": last_update_time,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 

@@ -161,7 +161,15 @@
         `${cfg.ENVIRONMENT_LABEL || "Development snapshot"} · ${list.length} facilitators · not live API`
       );
     } else {
-      setBanner(banner, "api", `Live API · ${list.length} facilitators`);
+      const state = freshnessState(lastUpdateTime);
+      if (state === "fresh") {
+        setBanner(banner, "api", `Live API · ${list.length} facilitators`);
+      } else if (state === "stale") {
+        const age = formatAge(Date.now() - Date.parse(lastUpdateTime));
+        setBanner(banner, "offline", `Offline · last update ${age}`);
+      } else {
+        setBanner(banner, "api", `Live API · ${list.length} facilitators`);
+      }
     }
 
     if (!list.length) {
@@ -463,7 +471,15 @@
         `${cfg.ENVIRONMENT_LABEL || "Development snapshot"} · ${list.length} record(s) · illustrative structure from indexer`
       );
     } else {
-      setBanner(banner, "api", `Live API · ${list.length} record(s)`);
+      const state = freshnessState(lastUpdateTime);
+      if (state === "fresh") {
+        setBanner(banner, "api", `Live API · ${list.length} record(s)`);
+      } else if (state === "stale") {
+        const age = formatAge(Date.now() - Date.parse(lastUpdateTime));
+        setBanner(banner, "offline", `Offline · last update ${age}`);
+      } else {
+        setBanner(banner, "api", `Live API · ${list.length} record(s)`);
+      }
     }
 
     applyEvidenceFilter();
@@ -493,6 +509,33 @@
   }
 
   // —— Boot ——
+  const STALE_THRESHOLD_MS = 60 * 60 * 1000;
+
+  function formatAge(ms) {
+    if (ms < 60 * 1000) return "just now";
+    if (ms < 60 * 60 * 1000) {
+      const mins = Math.floor(ms / (60 * 1000));
+      return mins + " min ago";
+    }
+    if (ms < 24 * 60 * 60 * 1000) {
+      const hrs = Math.floor(ms / (60 * 60 * 1000));
+      return hrs + " hour" + (hrs === 1 ? "" : "s") + " ago";
+    }
+    const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+    return days + " day" + (days === 1 ? "" : "s") + " ago";
+  }
+
+  function freshnessState(lastUpdateTime) {
+    if (!lastUpdateTime) return "unknown";
+    const ts = Date.parse(lastUpdateTime);
+    if (Number.isNaN(ts)) return "unknown";
+    const age = Date.now() - ts;
+    if (age <= STALE_THRESHOLD_MS) return "fresh";
+    return "stale";
+  }
+
+  let lastUpdateTime = null;
+
   async function boot() {
     try {
       const [fac, ev, stats] = await Promise.all([
@@ -500,6 +543,9 @@
         window.ProofAPI.getEvidence(),
         window.ProofAPI.getStats(),
       ]);
+      if (stats && stats.data && stats.data.last_update_time) {
+        lastUpdateTime = stats.data.last_update_time;
+      }
       renderStats(stats.data, stats.source);
       renderFacilitators(fac.data, fac.source);
       renderEvidence(ev.data, ev.source);
@@ -513,8 +559,8 @@
       if (statsGrid) {
         statsGrid.innerHTML = `<div class="state-msg">Unable to load statistics.</div>`;
       }
-      setBanner(document.getElementById("registry-banner"), "mock", "Data unavailable");
-      setBanner(document.getElementById("evidence-banner"), "mock", "Data unavailable");
+      setBanner(document.getElementById("registry-banner"), "offline", "Offline · API unreachable");
+      setBanner(document.getElementById("evidence-banner"), "offline", "Offline · API unreachable");
     }
   }
 

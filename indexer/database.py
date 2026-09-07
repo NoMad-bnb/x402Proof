@@ -378,6 +378,21 @@ def get_stats() -> dict:
         total_evidence = _execute(conn, "SELECT COUNT(*) FROM evidence").fetchone()[0]
         total_providers = _execute(conn, "SELECT COUNT(*) FROM providers").fetchone()[0]
 
+        last_evidence_row = _execute(
+            conn, "SELECT stored_at FROM evidence ORDER BY stored_at DESC LIMIT 1"
+        ).fetchone()
+        last_provider_row = _execute(
+            conn, "SELECT last_seen FROM providers ORDER BY last_seen DESC LIMIT 1"
+        ).fetchone()
+
+        last_update_time = None
+        for candidate in (last_evidence_row, last_provider_row):
+            value = candidate[0] if candidate else None
+            if value is None:
+                continue
+            if last_update_time is None or str(value) > str(last_update_time):
+                last_update_time = value
+
         return {
             "providers": {"total": total_providers, "by_status": provider_stats},
             "evidence": {
@@ -386,6 +401,7 @@ def get_stats() -> dict:
                 "by_source": source_stats,
                 "by_chain": chain_stats,
             },
+            "last_update_time": last_update_time,
         }
     finally:
         conn.close()
@@ -521,7 +537,7 @@ def _run_self_test() -> None:
     results = search_evidence(chain_id="0x14a34", audit_verdict="CONFIRMED")
     checks.append((
         "insert_evidence stores and search_evidence retrieves",
-        len(results) == 1 and results[0]["evidenceKey"]["chainId"] == "0x14a34",
+        len(results) == 1 and results[0]["evidence_key"]["chainId"] == "0x14a34",
     ))
 
     count = count_evidence(chain_id="0x14a34")
