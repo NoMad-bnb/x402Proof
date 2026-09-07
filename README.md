@@ -219,6 +219,59 @@ The dashboard never invents providers, verdicts, or endpoints. When the API is u
 
 ---
 
+## Verdicts and What They Mean
+
+The contract emits a limited set of deterministic verdicts. Each maps to a specific trust question:
+
+| Verdict | Meaning |
+|---------|---------|
+| `CONFIRMED` | The on-chain settlement matches the claim exactly. |
+| `CONTRADICTED` | The on-chain settlement exists but contradicts the claim. |
+| `REJECTED_*` | The claim is structurally invalid (no hash, no authorization, mismatch). |
+| `UNDETERMINED_*` | Evidence was insufficient to judge. The contract refused to guess. |
+| `PENDING_*` | A deadline has not passed yet. No final judgment is possible. |
+| `SETTLED_NO_ANNOUNCEMENT_CAPTURED` | A settlement exists, but the facilitator did not announce it. |
+| `UNVERIFIABLE_NO_TRANSACTION_HASH` | The claim lacks the minimum data required to verify. |
+
+Every verdict is the output of a deterministic function over the same on-chain bytes. **No language model participates in the judgment.**
+
+---
+
+## How to Verify Independently
+
+Anyone can verify the pipeline from public data alone, without trusting the API or the dashboard.
+
+### Step 1: Find a Base Sepolia transaction
+Open `https://sepolia.basescan.org` and search for the `transactionHash` shown on the dashboard. The receipt's `Transfer` event and `to` address are the on-chain evidence.
+
+### Step 2: Find the GenLayer audit
+Open GenLayer Studio and search for transactions sent to `X402_AUDITOR_ADDRESS = 0xc40f7bADb1E340C78E20CdEf8722114bBEb53e98` from the indexer's account. The `claim_transaction` field in the audit call should match the Base Sepolia hash.
+
+### Step 3: Read the contract state
+Call `X402Auditor.get_verdicts()` on GenLayer Studio. The last element is the verdict produced by the consensus round for that claim. Its `claimTransaction` field should match what you found in Step 1.
+
+### Step 4: Cross-check
+If the on-chain bytes, the contract call, and the dashboard all show the same `claimTransaction` and the same `verdict`, the pipeline is intact. If any of these three disagree, the discrepancy is itself a publishable finding.
+
+---
+
+## What the Contract Actually Writes
+
+`X402Auditor` keeps a single append-only field:
+
+```
+verdicts: DynArray[str]
+```
+
+Every `audit()` call appends one stringified JSON record. The contract never edits or deletes prior records. The registry views (`get_registry()`, `get_registry_by_relayer()`) are **derived** from this list at read time. They are not stored separately.
+
+This means:
+- The on-chain footprint is the verdict list, nothing else.
+- Anyone can recompute the registry from the verdicts and compare to the dashboard.
+- The dashboard is a cache. The contract is the source.
+
+---
+
 ## Design Principles
 
 - **No decimal reputation scores.** Precision is illusory, and validators compare literal text. The denominator is always shown; absence is written as `null`, not zero or one hundred.
