@@ -224,7 +224,7 @@
 
   function extractEvidenceFields(rec) {
     const summary = rec.summary || {};
-    const key = rec.evidenceKey || {};
+    const key = rec.evidenceKey || rec.evidence_key || {};
     const vr = summary.verificationRecord || {};
     const verdict =
       summary.auditVerdict ||
@@ -233,7 +233,9 @@
     const tx = key.transactionHash || vr.transactionHash || "";
     const provider = summary.providerId || "";
     const source = summary.evidenceSource || "";
-    return { summary, key, vr, verdict, tx, provider, source };
+    const evidenceDigest = rec.evidenceDigest || rec.evidence_digest || null;
+    const storedAt = rec.storedAt || rec.stored_at || null;
+    return { summary, key, vr, verdict, tx, provider, source, evidenceDigest, storedAt };
   }
 
   function matchesFilter(rec, q) {
@@ -262,7 +264,7 @@
 
     container.innerHTML = "";
     list.forEach((rec) => {
-      const { summary, key, vr, verdict, tx } = extractEvidenceFields(rec);
+      const { summary, key, vr, verdict, tx, evidenceDigest, storedAt } = extractEvidenceFields(rec);
       const chain = key.chainId || vr.chainId || "—";
 
       const row = document.createElement("button");
@@ -293,8 +295,8 @@
             <dt>Chain ID</dt><dd>${escapeHtml(String(chain))}</dd>
             <dt>Provider</dt><dd>${escapeHtml(summary.providerId || "—")}</dd>
             <dt>Evidence source</dt><dd>${escapeHtml(summary.evidenceSource || "—")}</dd>
-            <dt>Evidence digest</dt><dd>${escapeHtml(rec.evidenceDigest || "—")}</dd>
-            <dt>Stored at</dt><dd>${escapeHtml(rec.storedAt || "—")}</dd>
+            <dt>Evidence digest</dt><dd>${escapeHtml(evidenceDigest || "—")}</dd>
+            <dt>Stored at</dt><dd>${escapeHtml(storedAt || "—")}</dd>
             <dt>Verification status</dt><dd>${escapeHtml(summary.verificationStatus || vr.verificationStatus || "—")}</dd>
             <dt>Audit verdict</dt><dd><span class="verdict ${verdictClass(verdict)}">${escapeHtml(verdict)}</span></dd>
             <dt>Receipt status</dt><dd>${escapeHtml(String(vr.receiptStatus ?? "—"))}</dd>
