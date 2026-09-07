@@ -171,16 +171,18 @@ def _push_evidence_to_api(entry: dict) -> None:
     """Optionally push evidence to a remote API endpoint."""
     api_url = os.environ.get("X402_API_URL", "").rstrip("/")
     if not api_url:
+        print("[API] X402_API_URL not set, skipping evidence push")
         return
     try:
         import requests
-        requests.post(
+        response = requests.post(
             f"{api_url}/ingest/evidence",
             json={"records": [entry]},
             timeout=10,
         )
-    except Exception:
-        pass
+        print("[API] Pushed evidence: " + str(response.status_code))
+    except Exception as exc:
+        print("[API] Failed to push evidence: " + str(exc))
 
 
 def _run_self_test() -> None:

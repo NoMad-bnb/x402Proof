@@ -141,16 +141,18 @@ def _push_provider_to_api(entry: dict) -> None:
     """Optionally push provider to a remote API endpoint."""
     api_url = os.environ.get("X402_API_URL", "").rstrip("/")
     if not api_url:
+        print("[API] X402_API_URL not set, skipping provider push")
         return
     try:
         import requests
-        requests.post(
+        response = requests.post(
             f"{api_url}/ingest/providers",
             json={"providers": [entry]},
             timeout=10,
         )
-    except Exception:
-        pass
+        print("[API] Pushed provider: " + str(response.status_code))
+    except Exception as exc:
+        print("[API] Failed to push provider: " + str(exc))
 
 
 if __name__ == "__main__":

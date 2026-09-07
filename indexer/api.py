@@ -33,7 +33,10 @@ try:
     import database as db
     if not DB_PATH.exists():
         db.init_database()
-except Exception:
+except Exception as exc:
+    import traceback
+    print("DB init failed: " + str(exc))
+    traceback.print_exc()
     db = None
 
 
@@ -240,8 +243,8 @@ def ingest_providers(payload: dict):
         try:
             db.upsert_provider(provider)
             inserted += 1
-        except Exception:
-            pass
+        except Exception as exc:
+            print("Failed to insert provider: " + str(exc))
     return {"ingested": inserted}
 
 
@@ -256,8 +259,8 @@ def ingest_evidence(payload: dict):
         try:
             db.insert_evidence(record)
             inserted += 1
-        except Exception:
-            pass
+        except Exception as exc:
+            print("Failed to insert evidence: " + str(exc))
     return {"ingested": inserted}
 
 

@@ -106,6 +106,11 @@ def run_scheduler(
             after that many cycles.
     """
     cycle = 0
+    api_url = os.environ.get("X402_API_URL", "")
+    if not api_url:
+        print("WARNING: X402_API_URL is not set. Data will NOT be pushed to API.")
+    else:
+        print("API push enabled: " + api_url)
     print("Scheduler started. interval=" + str(cycle_interval_seconds) + "s max_cycles=" + str(max_cycles if max_cycles > 0 else "infinite"))
 
     try:
