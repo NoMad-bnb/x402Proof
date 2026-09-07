@@ -43,3 +43,5 @@ indexer/evidence.json
 indexer/providers.json
 402proof-site/README.md
 indexer/candidates.json
+indexer/generate_indexer_account.py
+indexer/run_a8_live_probe.py
