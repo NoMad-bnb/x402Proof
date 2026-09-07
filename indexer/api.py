@@ -155,7 +155,7 @@ def list_evidence(
     status: str | None = None,
     from_date: str | None = None,
     to_date: str | None = None,
-    limit: int = 100,
+    limit: int = 10000,
     offset: int = 0,
 ):
     if db is not None:
