@@ -38,8 +38,6 @@ The facilitator is, in practice, a trusted centralized party. There is no indepe
 
 Without independent verification, the seller must either trust the facilitator blindly or build custom monitoring per provider. Both approaches re-introduce the centralization problem that decentralized protocols are supposed to solve.
 
-The indexer previously treated slow-but-successful consensus as a failure. It now tracks the pending transaction hash and re-checks it across cycles without re-sending the claim.
-
 ---
 
 ## The Solution
@@ -47,7 +45,7 @@ The indexer previously treated slow-but-successful consensus as a failure. It no
 **x402Proof** sits between the facilitator's claim and the seller's acceptance:
 
 ```
-Facilitator → Settlement → Blockchain → Independent Auditors (GenLayer) → Verified Evidence → Reputation
+Facilitator -> Settlement -> Blockchain -> Independent Auditors (GenLayer) -> Verified Evidence -> Reputation
 ```
 
 The facilitator executes settlement as usual. An external indexer discovers candidate transactions. **GenLayer independently verifies the on-chain proof**, and the resulting immutable record feeds reputation scores, an API, and a public dashboard.
@@ -74,12 +72,12 @@ This project will never become a facilitator that executes settlement. **No paym
 
 ### 1. Discovery & Evidence
 
-The indexer runs on a schedule and, for each known facilitator:
+An external indexer runs on a schedule and, for each known facilitator:
 
 - Performs an x402 payment flow against a protected resource.
-- Captures the settlement transaction hash from the facilitator's response (`self_probe`) or discovers it via RPC fallback (`discovered_only`).
+- Captures the settlement transaction hash from the facilitator's response or discovers it via RPC fallback.
 - Verifies the transaction on-chain using a Base Sepolia RPC node.
-- Builds a structured 16-element claim with explicit `claim_source`.
+- Builds a structured claim with explicit source attribution.
 
 If no settlement evidence is found within the provider timeout, the record is marked `PENDING_NO_EVIDENCE_YET` and retried on the next cycle.
 
@@ -93,11 +91,11 @@ The indexer submits the claim to one of three GenLayer smart contracts:
 
 GenLayer validators run deterministic consensus on the same on-chain bytes. The contract appends the verdict to an append-only list. The indexer waits for consensus, then reads back the latest record.
 
-If consensus takes longer than the default SDK window (30s), the indexer tracks the pending transaction hash and re-checks it on subsequent cycles without re-sending the claim.
+If consensus takes longer than the default SDK window, the indexer tracks the pending transaction hash and re-checks it on subsequent cycles without re-sending the claim.
 
-### 3. Frontend & API
+### 3. Public Dashboard
 
-The indexer stores evidence in a local JSON store and exposes it through a FastAPI service.
+The indexer stores evidence in a local store and exposes it through a public API.
 
 The public dashboard connects to the API and displays:
 
@@ -105,169 +103,30 @@ The public dashboard connects to the API and displays:
 - Evidence records with full verification detail
 - Independent verification links (Base Sepolia, GenLayer Explorer, on-chain contract)
 
-When the API is unreachable, the dashboard falls back to local mock data and clearly labels it as a development snapshot.
+The dashboard refreshes automatically every 30 seconds. The indexer runs on a 10-minute cycle, so evidence records appear on the dashboard shortly after each successful cycle.
 
----
+Some facilitators use **batch-settlement** schemes, where value moves through an escrow contract instead of a direct payer-to-receiver transfer. These records are captured as evidence but are **not adjudicated** by `X402Auditor`, because the settlement cannot be attributed to a single payer. They appear on the dashboard as `BATCH_CAPTURED_NOT_JUDGED`.
 
-## Architecture
+Provider status reflects the last health check:
+- `healthy` - both `/supported` and RPC are reachable
+- `degraded` - one of the two is unreachable
+- `unhealthy` - both are unreachable
 
-```
-+-----------------+     +------------------+     +---------------------+
-|   Facilitator   |---->|  Blockchain      |---->|  GenLayer Validators|
-|                 |     |  (Base Sepolia)  |     |  (Independent)      |
-+-----------------+     +------------------+     +----------+----------+
-        |                                                    |
-        |                                                    | byte-by-byte
-        |                                                    | consensus
-        v                                                    v
-+-----------------+                                 +---------------------+
-|  x402 Payment   |                                 |  Verified Evidence  |
-|  Request / Resp |                                 |  + Reputation       |
-+-----------------+                                 +----------+----------+
-                                                              |
-                                           +----------------+----------------+
-                                           |                                 |
-                                     +-----v-----+                   +-------v------+
-                                     |   API     |                   |  Dashboard   |
-                                     | (FastAPI) |                   |  (Static)    |
-                                     +-----------+                   +--------------+
-```
-
----
-
-## Repository Structure
-
-```
-x402Proof/
-|-- README.md
-|-- .gitignore
-|
-|-- x402Proof/                    # GenLayer smart contracts
-|   |-- x402_auditor_v8.py        # Settlement vs. claim verification
-|   |-- supported_probe.py        # Active /supported endpoint checker
-|   |-- declaration_audit.py      # Declaration vs. on-chain behavior
-|
-|-- indexer/                      # Discovery, evidence, API, and scheduler
-|   |-- api.py                    # FastAPI service
-|   |-- database.py               # SQLite/PostgreSQL evidence store
-|   |-- evidence_store.py         # JSON evidence persistence
-|   |-- claim_builder.py          # Claim construction
-|   |-- settlement_hash_extractor.py
-|   |-- rpc_transfer_scanner.py
-|   |-- rpc_verification_adapter.py
-|   |-- http_evidence_collector.py
-|   |-- batch_evidence_capture.py # Batch-settlement zero-gas evidence
-|   |-- provider_discovery.py
-|   |-- consensus_observer.py
-|   |-- scheduler.py              # Automation loop with health checks and retry
-|   |-- pending_tracker.py        # Pending transaction recovery (check-only)
-|   |-- retry.py                  # Exponential backoff helper
-|   |-- health.py                 # Provider health checks
-|   |-- provider_registry.py
-|   |-- contracts_config.py       # Deployed contract addresses
-|   |-- genlayer_connection.py    # GenLayer SDK client setup
-|   |-- contract_callers.py       # Shared write/wait/read helpers
-|   |-- run_a8_live_probe.py
-|   |-- test_*.py                 # Self-tests
-|
-|-- 402proof-site/                # Public dashboard
-    |-- index.html
-    |-- css/
-    |   |-- main.css
-    |-- js/
-    |   |-- config.js              # API endpoint and environment labels
-    |   |-- api.js                 # Data layer with API client + mock fallback
-    |   |-- app.js                 # UI rendering
-    |-- assets/
-        |-- fonts/  logo/  icons/  graphics/
-```
+Evidence store status reflects deduplication:
+- `EVIDENCE_STORED` - new record written
+- `EVIDENCE_DUPLICATE` - same semantic evidence already exists
+- `EVIDENCE_NO_KEY` - transaction hash was missing, nothing stored
 
 ---
 
 ## Live
 
 - **Dashboard:** https://x402-proof.vercel.app/
-- **API:** https://x402proof-api.onrender.com/
 - **Contracts (GenLayer Studio):**
   - **X402Auditor:** https://explorer-studio.genlayer.com/address/0xc40f7bADb1E340C78E20CdEf8722114bBEb53e98
   - **SupportedProbe:** https://explorer-studio.genlayer.com/address/0xb878840aE798078D8ED3CE371f6dC33eD98e0B8F
   - **DeclarationAudit:** https://explorer-studio.genlayer.com/address/0xeC9B3Bb176B22a31F659AB4581a9F22D3522737A
 - **Chain data source:** Base Sepolia via RPC
-
----
-
----
-
-## API Reference
-
-### `GET /health`
-
-Service status and database counts.
-
-### `GET /facilitators`
-
-List all known facilitators with status.
-
-```json
-[
-  {
-    "provider_id": "x402org-public",
-    "label": "x402.org",
-    "facilitator_base_url": "https://x402.org",
-    "supported_url": "https://x402.org/facilitator/supported",
-    "networks": ["eip155:84532"],
-    "status": "DECLARATION_CAPTURED"
-  }
-]
-```
-
-### `GET /evidence`
-
-List evidence records. Supports filters: `chain_id`, `provider_id`, `verdict`, `evidence_source`, `status`, `from_date`, `to_date`, `limit`, `offset`.
-
-```json
-[
-  {
-    "schemaVersion": 1,
-    "storedAt": "2026-09-05T01:55:40.029876+00:00",
-    "evidenceKey": {
-      "chainId": "0x14a34",
-      "transactionHash": "0xabab..."
-    },
-    "evidenceDigest": "93ff88...",
-    "summary": {
-      "providerId": "test-provider",
-      "verificationStatus": "VERIFIED",
-      "auditVerdict": "CONFIRMED",
-      "genLayerTxHash": "0x1212..."
-    }
-  }
-]
-```
-
-### `GET /stats`
-
-Aggregated counts by provider status, evidence verdict, source, and chain.
-
----
-
-## Verdicts and What They Mean
-
-The contract emits a limited set of deterministic verdicts. Each maps to a specific trust question:
-
-| Verdict | Meaning |
-|---------|---------|
-| `CONFIRMED` | The on-chain settlement matches the claim exactly. |
-| `CONFIRMED_FAILURE_TRANSACTION_REVERTED` | Claim asserted success, but transaction reverted on-chain. |
-| `CONFIRMED_FAILURE_NOT_ON_CHAIN` | Claim asserted success, but no settlement found on-chain. |
-| `CONTRADICTED_*` | The on-chain settlement exists but contradicts the claim. |
-| `REJECTED_*` | The claim is structurally invalid (no hash, no authorization, mismatch). |
-| `UNDETERMINED_*` | Evidence was insufficient to judge. The contract refused to guess. |
-| `PENDING_*` | A deadline has not passed yet. No final judgment is possible. |
-| `SETTLED_*` | Settlement exists, but the facilitator did or did not announce it. |
-| `UNVERIFIABLE_NO_TRANSACTION_HASH` | The claim lacks the minimum data required to verify. |
-
-Every verdict is the output of a deterministic function over the same on-chain bytes. **No language model participates in the judgment.**
 
 ---
 
@@ -319,6 +178,26 @@ This means:
 
 ---
 
+## Verdicts and What They Mean
+
+The contract emits a limited set of deterministic verdicts. Each maps to a specific trust question:
+
+| Verdict | Meaning |
+|---------|---------|
+| `CONFIRMED` | The on-chain settlement matches the claim exactly. |
+| `CONFIRMED_FAILURE_TRANSACTION_REVERTED` | Claim asserted success, but transaction reverted on-chain. |
+| `CONFIRMED_FAILURE_NOT_ON_CHAIN` | Claim asserted success, but no settlement found on-chain. |
+| `CONTRADICTED_*` | The on-chain settlement exists but contradicts the claim. |
+| `REJECTED_*` | The claim is structurally invalid (no hash, no authorization, mismatch). |
+| `UNDETERMINED_*` | Evidence was insufficient to judge. The contract refused to guess. |
+| `PENDING_*` | A deadline has not passed yet. No final judgment is possible. |
+| `SETTLED_*` | Settlement exists, but the facilitator did or did not announce it. |
+| `UNVERIFIABLE_NO_TRANSACTION_HASH` | The claim lacks the minimum data required to verify. |
+
+Every verdict is the output of a deterministic function over the same on-chain bytes. **No language model participates in the judgment.**
+
+---
+
 ## Roadmap
 
 1. **Independent Verification** - 3 GenLayer contracts live, consensus verified, dashboard live.
@@ -340,3 +219,9 @@ This means:
 ## License
 
 Proprietary. All rights reserved.
+
+---
+
+## Status
+
+This project is **under active development**. The current version is a working prototype on Base Sepolia. Features, interfaces, and supported facilitators may change before the final release.
