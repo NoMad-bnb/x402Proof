@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from provider_registry import load_registry, get_provider
+from provider_registry import load_registry, get_provider, update_status
 from http_evidence_collector import collect_and_audit
 from health import provider_health
 from retry import retry, RetryConfig, classify_failure
@@ -46,6 +46,10 @@ def _run_provider(provider: dict) -> dict:
 
     try:
         health = provider_health(provider)
+        try:
+            update_status(provider_id, health["overall"])
+        except Exception as exc:
+            print("WARNING: update_status failed for " + provider_id + ": " + str(exc))
         if health["overall"] == "unhealthy":
             result["outcome"] = "skipped_unhealthy"
             result["error"] = "provider unreachable: supported=" + str(health["checks"]["supported"]["passed"]) + " rpc=" + str(health["checks"]["rpc"]["passed"])
