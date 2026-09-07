@@ -312,6 +312,8 @@ def collect_and_audit(
     )
     summary["auditVerdict"] = audit_record.get("verdict")
     summary["auditRecord"] = audit_record
+    if audit_record.get("gen_layer_tx_hash"):
+        summary["genLayerTxHash"] = audit_record["gen_layer_tx_hash"]
 
     declaration_url = provider.get("known_declaration_url")
     if declaration_url and claim_transaction:
@@ -323,6 +325,8 @@ def collect_and_audit(
         )
         summary["declarationVerdict"] = declaration_record.get("verdict")
         summary["declarationRecord"] = declaration_record
+        if declaration_record.get("gen_layer_tx_hash"):
+            summary["genLayerTxHash"] = declaration_record["gen_layer_tx_hash"]
 
     # A9 (evidence_store.py): persist the full summary under its natural
     # key, unless the same semantic evidence already exists. Keyless runs

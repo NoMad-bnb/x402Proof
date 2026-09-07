@@ -1,6 +1,20 @@
 ﻿# x402Proof
 
+![Live](https://img.shields.io/badge/status-live-green)
+![GenLayer](https://img.shields.io/badge/chain-GenLayer%20Studio-blue)
+![Open Source](https://img.shields.io/badge/license-Proprietary-lightgrey)
+
 **Independent audit and reputation layer for x402 facilitators.**
+
+---
+
+## What is x402Proof
+
+x402Proof is an **independent audit and reputation layer** for x402 facilitators, built on **GenLayer**.
+
+It does not settle payments. It does not hold funds. It does not run wallets or gas management. It only **verifies** - using deterministic smart contracts and independent validators - whether a facilitator's settlement claim matches what actually happened on-chain.
+
+The result is an immutable, reproducible evidence record that anyone can check without trusting the API, the dashboard, or the indexer.
 
 ---
 
@@ -24,14 +38,16 @@ The facilitator is, in practice, a trusted centralized party. There is no indepe
 
 Without independent verification, the seller must either trust the facilitator blindly or build custom monitoring per provider. Both approaches re-introduce the centralization problem that decentralized protocols are supposed to solve.
 
+The indexer previously treated slow-but-successful consensus as a failure. It now tracks the pending transaction hash and re-checks it across cycles without re-sending the claim.
+
 ---
 
 ## The Solution
 
-**x402Proof** is an independent audit and reputation layer for x402 facilitators, built on **GenLayer**.
+**x402Proof** sits between the facilitator's claim and the seller's acceptance:
 
 ```
-Facilitator -> Settlement -> Blockchain -> Independent Auditors (GenLayer) -> Verified Evidence -> Reputation
+Facilitator → Settlement → Blockchain → Independent Auditors (GenLayer) → Verified Evidence → Reputation
 ```
 
 The facilitator executes settlement as usual. An external indexer discovers candidate transactions. **GenLayer independently verifies the on-chain proof**, and the resulting immutable record feeds reputation scores, an API, and a public dashboard.
@@ -56,30 +72,40 @@ This project will never become a facilitator that executes settlement. **No paym
 
 ## How It Works
 
-### 1. Independent Verification via Smart Contracts
+### 1. Discovery & Evidence
 
-Three separate smart contracts run on GenLayer. Each contract serves a distinct purpose and does not call the others. Binding between them happens in higher layers (the indexer or the API).
+The indexer runs on a schedule and, for each known facilitator:
 
-**X402Auditor** validates whether an on-chain settlement is actually an x402 payment. It reads transaction calldata, decodes EIP-3009 authorization, and compares it against the claim. It distinguishes between a real payment that is not x402 and a fabricated x402 claim.
+- Performs an x402 payment flow against a protected resource.
+- Captures the settlement transaction hash from the facilitator's response (`self_probe`) or discovers it via RPC fallback (`discovered_only`).
+- Verifies the transaction on-chain using a Base Sepolia RPC node.
+- Builds a structured 16-element claim with explicit `claim_source`.
 
-**SupportedProbe** actively fetches the `/supported` endpoint from facilitators and stores the response digest. Any future change in a facilitator's declaration is detected by a single digest comparison.
+If no settlement evidence is found within the provider timeout, the record is marked `PENDING_NO_EVIDENCE_YET` and retried on the next cycle.
 
-**DeclarationAudit** compares a facilitator's self-declared address or signers against the actual observed sender on-chain. It runs two independent consensus rounds in a single transaction so that failures are attributed to the correct party.
+### 2. Independent Audit (GenLayer)
 
-### 2. The Indexer
+The indexer submits the claim to one of three GenLayer smart contracts:
 
-The indexer is the external discovery and evidence-capture layer. It:
+- **X402Auditor** - validates EIP-3009 authorization, transfer events, and payer/amount/network against the claim.
+- **SupportedProbe** - fetches `/supported` and records a digest for change detection.
+- **DeclarationAudit** - cross-checks a facilitator's self-declared signers against the actual on-chain sender.
 
-- Discovers candidate settlement transactions from the blockchain.
-- Extracts settlement hashes and normalizes amounts.
-- Captures evidence from RPC nodes and HTTP endpoints.
-- Builds structured claims and submits them to the GenLayer contracts.
+GenLayer validators run deterministic consensus on the same on-chain bytes. The contract appends the verdict to an append-only list. The indexer waits for consensus, then reads back the latest record.
 
-The indexer is designed so that **every claim carries an explicit `claim_source`** with no exceptions. This prevents the indexer from ever becoming a source of truth; the blockchain and GenLayer consensus remain the only authorities.
+If consensus takes longer than the default SDK window (30s), the indexer tracks the pending transaction hash and re-checks it on subsequent cycles without re-sending the claim.
 
-### 3. The Frontend
+### 3. Frontend & API
 
-A static, framework-free frontend displays the registry and evidence. It connects to the indexer API when available and falls back to local mock data labeled as a development snapshot. The UI never invents providers, verdicts, or endpoints.
+The indexer stores evidence in a local JSON store and exposes it through a FastAPI service.
+
+The public dashboard connects to the API and displays:
+
+- Facilitator registry with live status
+- Evidence records with full verification detail
+- Independent verification links (Base Sepolia, GenLayer Explorer, on-chain contract)
+
+When the API is unreachable, the dashboard falls back to local mock data and clearly labels it as a development snapshot.
 
 ---
 
@@ -98,13 +124,13 @@ A static, framework-free frontend displays the registry and evidence. It connect
 |  x402 Payment   |                                 |  Verified Evidence  |
 |  Request / Resp |                                 |  + Reputation       |
 +-----------------+                                 +----------+----------+
-                                                             |
-                                          +----------------+----------------+
-                                          |                                 |
-                                    +-----v-----+                   +-------v------+
-                                    |   API     |                   |  Dashboard   |
-                                    | (FastAPI) |                   |  (Static)    |
-                                    +-----------+                   +--------------+
+                                                              |
+                                           +----------------+----------------+
+                                           |                                 |
+                                     +-----v-----+                   +-------v------+
+                                     |   API     |                   |  Dashboard   |
+                                     | (FastAPI) |                   |  (Static)    |
+                                     +-----------+                   +--------------+
 ```
 
 ---
@@ -113,31 +139,41 @@ A static, framework-free frontend displays the registry and evidence. It connect
 
 ```
 x402Proof/
-|-- README.md                     # Project overview and vision
-|-- .gitignore                    # Privacy and build exclusions
+|-- README.md
+|-- .gitignore
 |
 |-- x402Proof/                    # GenLayer smart contracts
 |   |-- x402_auditor_v8.py        # Settlement vs. claim verification
 |   |-- supported_probe.py        # Active /supported endpoint checker
 |   |-- declaration_audit.py      # Declaration vs. on-chain behavior
 |
-|-- indexer/                      # External discovery, evidence, and API
-|   |-- api.py                    # FastAPI service (deployed on Render)
+|-- indexer/                      # Discovery, evidence, API, and scheduler
+|   |-- api.py                    # FastAPI service
 |   |-- database.py               # SQLite/PostgreSQL evidence store
+|   |-- evidence_store.py         # JSON evidence persistence
 |   |-- claim_builder.py          # Claim construction
 |   |-- settlement_hash_extractor.py
 |   |-- rpc_transfer_scanner.py
 |   |-- rpc_verification_adapter.py
 |   |-- http_evidence_collector.py
+|   |-- batch_evidence_capture.py # Batch-settlement zero-gas evidence
 |   |-- provider_discovery.py
 |   |-- consensus_observer.py
-|   |-- batch_evidence_capture.py
-|   |-- scheduler.py
+|   |-- scheduler.py              # Automation loop with health checks and retry
+|   |-- pending_tracker.py        # Pending transaction recovery (check-only)
+|   |-- retry.py                  # Exponential backoff helper
+|   |-- health.py                 # Provider health checks
+|   |-- provider_registry.py
+|   |-- contracts_config.py       # Deployed contract addresses
+|   |-- genlayer_connection.py    # GenLayer SDK client setup
+|   |-- contract_callers.py       # Shared write/wait/read helpers
+|   |-- run_a8_live_probe.py
 |   |-- test_*.py                 # Self-tests
 |
 |-- 402proof-site/                # Public dashboard
     |-- index.html
     |-- css/
+    |   |-- main.css
     |-- js/
     |   |-- config.js              # API endpoint and environment labels
     |   |-- api.js                 # Data layer with API client + mock fallback
@@ -152,28 +188,27 @@ x402Proof/
 
 - **Dashboard:** https://x402-proof.vercel.app/
 - **API:** https://x402proof-api.onrender.com/
-- **Contracts:** GenLayer Studio
+- **Contracts (GenLayer Studio):**
+  - **X402Auditor:** https://explorer-studio.genlayer.com/address/0xc40f7bADb1E340C78E20CdEf8722114bBEb53e98
+  - **SupportedProbe:** https://explorer-studio.genlayer.com/address/0xb878840aE798078D8ED3CE371f6dC33eD98e0B8F
+  - **DeclarationAudit:** https://explorer-studio.genlayer.com/address/0xeC9B3Bb176B22a31F659AB4581a9F22D3522737A
 - **Chain data source:** Base Sepolia via RPC
 
 ---
 
-## Current Status
-
-| Component | Status |
-|-----------|--------|
-| Smart contracts (GenLayer) | 3 contracts live on GenLayer Studio; consensus verified |
-| Indexer | A1-A11 complete and tested |
-| API | Deployed on Render with PostgreSQL |
-| Dashboard | Live and connected to API |
-| Qualitative layer (LLM) | Planned for Phase D |
-| Incentives | Planned for later phase |
-
 ---
 
-## Example Output
+## API Reference
+
+### `GET /health`
+
+Service status and database counts.
+
+### `GET /facilitators`
+
+List all known facilitators with status.
 
 ```json
-GET /facilitators
 [
   {
     "provider_id": "x402org-public",
@@ -186,36 +221,33 @@ GET /facilitators
 ]
 ```
 
+### `GET /evidence`
+
+List evidence records. Supports filters: `chain_id`, `provider_id`, `verdict`, `evidence_source`, `status`, `from_date`, `to_date`, `limit`, `offset`.
+
 ```json
-GET /stats
-{
-  "providers": {
-    "total": 7,
-    "by_status": {
-      "DECLARATION_CAPTURED": 4,
-      "NO_SUPPORTED_ENDPOINT": 2,
-      "GATED_REQUIRES_CREDENTIALS": 1
+[
+  {
+    "schemaVersion": 1,
+    "storedAt": "2026-09-05T01:55:40.029876+00:00",
+    "evidenceKey": {
+      "chainId": "0x14a34",
+      "transactionHash": "0xabab..."
+    },
+    "evidenceDigest": "93ff88...",
+    "summary": {
+      "providerId": "test-provider",
+      "verificationStatus": "VERIFIED",
+      "auditVerdict": "CONFIRMED",
+      "genLayerTxHash": "0x1212..."
     }
-  },
-  "evidence": {
-    "total": 0,
-    "by_verdict": {},
-    "by_source": {},
-    "by_chain": {}
   }
-}
+]
 ```
 
-The dashboard never invents providers, verdicts, or endpoints. When the API is unreachable, it falls back to local mock data and clearly labels it as a development snapshot.
+### `GET /stats`
 
----
-
-## Roadmap
-
-1. **Database and API**: FastAPI backed by SQLite/PostgreSQL, with transparent derivable metrics.
-2. **Public Dashboard**: Search and browse registry, evidence, and reputation.
-3. **Qualitative Layer**: Optional LLM-based comparison of written promises vs. observed behavior, isolated from deterministic verdicts.
-4. **Incentives**: Bonding or complaint staking to prevent spam; GenLayer staking primitives under research.
+Aggregated counts by provider status, evidence verdict, source, and chain.
 
 ---
 
@@ -226,49 +258,73 @@ The contract emits a limited set of deterministic verdicts. Each maps to a speci
 | Verdict | Meaning |
 |---------|---------|
 | `CONFIRMED` | The on-chain settlement matches the claim exactly. |
-| `CONTRADICTED` | The on-chain settlement exists but contradicts the claim. |
+| `CONFIRMED_FAILURE_TRANSACTION_REVERTED` | Claim asserted success, but transaction reverted on-chain. |
+| `CONFIRMED_FAILURE_NOT_ON_CHAIN` | Claim asserted success, but no settlement found on-chain. |
+| `CONTRADICTED_*` | The on-chain settlement exists but contradicts the claim. |
 | `REJECTED_*` | The claim is structurally invalid (no hash, no authorization, mismatch). |
 | `UNDETERMINED_*` | Evidence was insufficient to judge. The contract refused to guess. |
 | `PENDING_*` | A deadline has not passed yet. No final judgment is possible. |
-| `SETTLED_NO_ANNOUNCEMENT_CAPTURED` | A settlement exists, but the facilitator did not announce it. |
+| `SETTLED_*` | Settlement exists, but the facilitator did or did not announce it. |
 | `UNVERIFIABLE_NO_TRANSACTION_HASH` | The claim lacks the minimum data required to verify. |
 
 Every verdict is the output of a deterministic function over the same on-chain bytes. **No language model participates in the judgment.**
 
 ---
 
-## How to Verify Independently
+## Verification Guide
 
-Anyone can verify the pipeline from public data alone, without trusting the API or the dashboard.
+### From the Dashboard (Recommended)
 
-### Step 1: Find a Base Sepolia transaction
-Open `https://sepolia.basescan.org` and search for the `transactionHash` shown on the dashboard. The receipt's `Transfer` event and `to` address are the on-chain evidence.
+Open any **Verification Record** in the side panel and use the built-in actions:
 
-### Step 2: Find the GenLayer audit
-Open the [GenLayer Explorer](https://explorer-studio.genlayer.com/) and search for transactions sent to `X402_AUDITOR_ADDRESS = 0xc40f7bADb1E340C78E20CdEf8722114bBEb53e98` from the indexer's account. The `claim_transaction` field in the audit call should match the Base Sepolia hash.
+- **View Base Sepolia Transaction** - opens the settlement on BaseScan.
+- **View GenLayer Audit** - opens the audit transaction on GenLayer Explorer.
+- **Verify Verdict On-Chain** - opens the `X402Auditor` contract with instructions to call `get_verdicts()` and match `claimTransaction` to the Base transaction.
 
-### Step 3: Read the contract state
-Call `X402Auditor.get_verdicts()` on GenLayer Studio. The last element is the verdict produced by the consensus round for that claim. Its `claimTransaction` field should match what you found in Step 1.
+If a button is disabled, the required transaction hash was not captured for that record.
 
-### Step 4: Cross-check
-If the on-chain bytes, the contract call, and the dashboard all show the same `claimTransaction` and the same `verdict`, the pipeline is intact. If any of these three disagree, the discrepancy is itself a publishable finding.
+### Manual Verification (Advanced)
+
+1. Find a Base Sepolia transaction on `sepolia.basescan.org` using the `transactionHash` from the dashboard.
+2. Find the GenLayer audit transaction on `explorer-studio.genlayer.com` sent to `X402_AUDITOR_ADDRESS = 0xc40f7bADb1E340C78E20CdEf8722114bBEb53e98`.
+3. Call `get_verdicts()` on the contract. The last element is the verdict for the most recent claim.
+4. Cross-check that `claimTransaction` in the contract matches the Base Sepolia hash, and that the dashboard shows the same verdict.
+
+If on-chain bytes, the contract call, and the dashboard all agree, the pipeline is intact. If any of these three disagree, the discrepancy is itself a publishable finding.
 
 ---
 
 ## What the Contract Actually Writes
 
-`X402Auditor` keeps a single append-only field:
+`X402Auditor` keeps a single append-only list:
 
-```
+```solidity
 verdicts: DynArray[str]
 ```
 
-Every `audit()` call appends one stringified JSON record. The contract never edits or deletes prior records. The registry views (`get_registry()`, `get_registry_by_relayer()`) are **derived** from this list at read time. They are not stored separately.
+Every `audit()` call appends one stringified JSON record. The contract never edits or deletes prior records. Registry views (`get_registry()`, `get_registry_by_relayer()`) are **derived** from this list at read time.
+
+Each record contains:
+
+- `verdict` - the deterministic outcome string
+- `claimTransaction` - the Base Sepolia transaction hash being judged
+- `claimSource` - `self_probe`, `discovered_only`, or similar
+- `facilitator`, `network`, `payer`, `payee`, `amount`, `timestamp`, and other claim fields
 
 This means:
+
 - The on-chain footprint is the verdict list, nothing else.
 - Anyone can recompute the registry from the verdicts and compare to the dashboard.
 - The dashboard is a cache. The contract is the source.
+
+---
+
+## Roadmap
+
+1. **Independent Verification** - 3 GenLayer contracts live, consensus verified, dashboard live.
+2. **Resilience** - Pending transaction tracking with check-only retry; extended consensus windows; dynamic scheduler intervals.
+3. **Transparency** - One-click independent verification links in every record; full public API.
+4. **Qualitative Layer (Phase D)** - Optional LLM-based comparison of written promises vs. observed behavior, isolated from deterministic verdicts.
 
 ---
 

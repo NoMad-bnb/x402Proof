@@ -97,6 +97,7 @@ def _append_then_read(
 
     if capture is not None:
         capture["tx_hash"] = tx_hash
+        capture["gen_layer_tx_hash"] = tx_hash
         try:
             capture["receipt"] = client.wait_for_transaction_receipt(
                 transaction_hash=tx_hash,
@@ -151,11 +152,9 @@ def _append_then_read(
         )
 
     latest = records[-1]
-    return (
-        json.loads(latest)
-        if isinstance(latest, (str, bytes, bytearray))
-        else latest
-    )
+    record = json.loads(latest) if isinstance(latest, (str, bytes, bytearray)) else latest
+    record["gen_layer_tx_hash"] = tx_hash
+    return record
 
 
 def check_transaction_receipt(
@@ -232,11 +231,10 @@ def check_transaction_receipt(
         )
 
     latest = records[-1]
-    return (
-        json.loads(latest)
-        if isinstance(latest, (str, bytes, bytearray))
-        else latest
-    )
+    record = json.loads(latest) if isinstance(latest, (str, bytes, bytearray)) else latest
+    record["gen_layer_tx_hash"] = transaction_hash
+    return record
+
 
 def submit_x402_audit(claim, client=None, wait_status=DEFAULT_WAIT_STATUS,
                       wait_interval=None, wait_retries=None):

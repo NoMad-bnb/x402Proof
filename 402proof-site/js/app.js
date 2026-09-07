@@ -35,6 +35,11 @@
     return "v-undetermined";
   }
 
+  function isValidEthHash(hash) {
+    if (!hash || typeof hash !== "string") return false;
+    return /^0x[0-9a-fA-F]{64}$/.test(hash);
+  }
+
   function setBanner(el, source, message) {
     if (!el) return;
     el.dataset.source = source;
@@ -415,6 +420,14 @@
       row.addEventListener("click", () => {
         const auth = vr.authorization || {};
         const transfer = vr.transfer || {};
+        const baseTx = tx || vr.transactionHash || "";
+        const genTx = summary.genLayerTxHash || "";
+        const hasBase = isValidEthHash(baseTx);
+        const hasGen = isValidEthHash(genTx);
+        const baseUrl = hasBase ? "https://sepolia.basescan.org/tx/" + baseTx : null;
+        const genUrl = hasGen ? "https://explorer-studio.genlayer.com/tx/" + genTx : null;
+        const contractUrl = "https://explorer-studio.genlayer.com/address/0xc40f7bADb1E340C78E20CdEf8722114bBEb53e98";
+
         openDrawer("Verification record", `
           <dl>
             <dt>Transaction</dt><dd>${escapeHtml(tx)}</dd>
@@ -431,6 +444,23 @@
             <dt>Authorization</dt><dd>${auth.found ? `selector ${escapeHtml(auth.selector || "—")}${auth.hasEIP3009Selector ? " · EIP-3009" : ""}` : "not found"}</dd>
             <dt>Resource</dt><dd>${escapeHtml(summary.resourceUrl || "—")}</dd>
           </dl>
+          <section class="verification-actions">
+            <h3>Independent Verification</h3>
+            <div class="action-buttons">
+              <a class="btn btn-ghost" ${hasBase ? `href="${baseUrl}" target="_blank" rel="noopener"` : "disabled"} title="${hasBase ? "View on Base Sepolia Explorer" : "Base transaction hash not available"}">
+                View Base Sepolia ↗
+              </a>
+              <a class="btn btn-ghost" ${hasGen ? `href="${genUrl}" target="_blank" rel="noopener"` : "disabled"} title="${hasGen ? "View on GenLayer Explorer" : "GenLayer transaction hash not available"}">
+                View GenLayer Audit ↗
+              </a>
+              <a class="btn btn-primary" href="${contractUrl}" target="_blank" rel="noopener">
+                Verify Verdict On-Chain ↗
+              </a>
+            </div>
+            <p class="action-hint">
+              On-Chain Verdict opens the X402Auditor contract on GenLayer Explorer. Use <code>get_verdicts()</code> and match <code>claimTransaction</code> to the Base transaction above.
+            </p>
+          </section>
           <p style="margin-top:var(--space-5);font-size:var(--text-xs);color:var(--text-muted)">
             ${escapeHtml(cfg.NETWORK_HINT || "")}
           </p>
