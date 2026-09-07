@@ -245,7 +245,7 @@ Anyone can verify the pipeline from public data alone, without trusting the API 
 Open `https://sepolia.basescan.org` and search for the `transactionHash` shown on the dashboard. The receipt's `Transfer` event and `to` address are the on-chain evidence.
 
 ### Step 2: Find the GenLayer audit
-Open GenLayer Studio and search for transactions sent to `X402_AUDITOR_ADDRESS = 0xc40f7bADb1E340C78E20CdEf8722114bBEb53e98` from the indexer's account. The `claim_transaction` field in the audit call should match the Base Sepolia hash.
+Open the [GenLayer Explorer](https://explorer-studio.genlayer.com/) and search for transactions sent to `X402_AUDITOR_ADDRESS = 0xc40f7bADb1E340C78E20CdEf8722114bBEb53e98` from the indexer's account. The `claim_transaction` field in the audit call should match the Base Sepolia hash.
 
 ### Step 3: Read the contract state
 Call `X402Auditor.get_verdicts()` on GenLayer Studio. The last element is the verdict produced by the consensus round for that claim. Its `claimTransaction` field should match what you found in Step 1.
