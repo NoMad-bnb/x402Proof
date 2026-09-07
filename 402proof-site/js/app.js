@@ -385,4 +385,5 @@
   }
 
   boot();
+  setInterval(boot, 30000);
 })();
