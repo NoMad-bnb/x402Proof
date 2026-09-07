@@ -134,7 +134,7 @@ Evidence store status reflects deduplication:
 
 ### From the Dashboard (Recommended)
 
-Open any **Verification Record** in the side panel and use the built-in actions:
+Click any evidence record to open its verification side panel, then use the built-in actions:
 
 - **View Base Sepolia Transaction** - opens the settlement on BaseScan.
 - **View GenLayer Audit** - opens the audit transaction on GenLayer Explorer.
@@ -201,9 +201,11 @@ Every verdict is the output of a deterministic function over the same on-chain b
 ## Roadmap
 
 1. **Independent Verification** - 3 GenLayer contracts live, consensus verified, dashboard live.
-2. **Resilience** - Pending transaction tracking with check-only retry; extended consensus windows; dynamic scheduler intervals.
-3. **Transparency** - One-click independent verification links in every record; full public API.
-4. **Qualitative Layer (Phase D)** - Optional LLM-based comparison of written promises vs. observed behavior, isolated from deterministic verdicts.
+2. **Resilience** - Completed: pending transaction tracking with check-only retry; extended consensus windows; dynamic scheduler intervals.
+3. **Transparency** - One-click independent verification links in every evidence record.
+4. **Qualitative Layer (Phase D)** - LLM-based comparison of written promises vs. observed behavior, isolated from deterministic verdicts.
+
+This roadmap reflects the current direction. Additional features and improvements may be added in future releases.
 
 ---
 
