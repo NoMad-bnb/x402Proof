@@ -221,8 +221,35 @@
   // —— Evidence (with client-side filter) ——
   let evidenceCache = [];
   let evidenceSource = "mock";
-  const PAGE_SIZE = 6;
+  const ROWS_PER_PAGE_OPTIONS = [6, 10];
+  let evidencePageSize = 6;
   let evidencePage = 1;
+
+  function getFilteredEvidence() {
+    const input = document.getElementById("evidence-search");
+    const q = (input && input.value ? input.value : "").trim().toLowerCase();
+    return evidenceCache.filter((rec) => matchesFilter(rec, q));
+  }
+
+  function rerenderEvidence() {
+    const filtered = getFilteredEvidence();
+    renderEvidenceList(filtered);
+  }
+
+  function buildPagerButton(label, ariaLabel, onClick, disabled, isActive) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = label;
+    btn.setAttribute("aria-label", ariaLabel);
+    btn.className = "chip" + (isActive ? " chip-status declared" : "");
+    if (disabled) {
+      btn.disabled = true;
+      btn.setAttribute("aria-disabled", "true");
+    } else {
+      btn.addEventListener("click", onClick);
+    }
+    return btn;
+  }
 
   function renderEvidencePagination(totalItems) {
     const listEl = document.getElementById("evidence-list");
@@ -234,29 +261,90 @@
       pager.style.flexWrap = "wrap";
       pager.style.gap = "8px";
       pager.style.justifyContent = "center";
+      pager.style.alignItems = "center";
       pager.style.marginTop = "var(--space-5)";
       listEl.insertAdjacentElement("afterend", pager);
     }
-    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+
+    const totalPages = Math.max(1, Math.ceil(totalItems / evidencePageSize));
     if (evidencePage > totalPages) evidencePage = totalPages;
     if (evidencePage < 1) evidencePage = 1;
+
+    const isFirst = evidencePage <= 1;
+    const isLast = evidencePage >= totalPages;
+
     pager.innerHTML = "";
-    for (let i = 1; i <= totalPages; i++) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = String(i);
-      btn.className = "chip" + (i === evidencePage ? " chip-status declared" : "");
-      btn.addEventListener("click", () => {
-        evidencePage = i;
-        const input = document.getElementById("evidence-search");
-        const q = (input && input.value ? input.value : "").trim().toLowerCase();
-        const filtered = evidenceCache.filter((rec) => matchesFilter(rec, q));
-        renderEvidenceList(filtered);
-        listEl.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-      pager.appendChild(btn);
-    }
-    pager.hidden = totalPages <= 1;
+    pager.appendChild(
+      buildPagerButton(
+        "First",
+        "Go to first page",
+        () => { evidencePage = 1; rerenderEvidence(); listEl.scrollIntoView({ behavior: "smooth", block: "start" }); },
+        isFirst,
+        false
+      )
+    );
+    pager.appendChild(
+      buildPagerButton(
+        "←",
+        "Previous page",
+        () => { evidencePage = evidencePage - 1; rerenderEvidence(); listEl.scrollIntoView({ behavior: "smooth", block: "start" }); },
+        isFirst,
+        false
+      )
+    );
+
+    const pageInfo = document.createElement("span");
+    pageInfo.textContent = "Page " + evidencePage + " of " + totalPages;
+    pageInfo.className = "chip";
+    pageInfo.style.padding = "6px 12px";
+    pageInfo.setAttribute("aria-label", "Current page " + evidencePage + " of " + totalPages);
+    pager.appendChild(pageInfo);
+
+    pager.appendChild(
+      buildPagerButton(
+        "→",
+        "Next page",
+        () => { evidencePage = evidencePage + 1; rerenderEvidence(); listEl.scrollIntoView({ behavior: "smooth", block: "start" }); },
+        isLast,
+        false
+      )
+    );
+    pager.appendChild(
+      buildPagerButton(
+        "Last",
+        "Go to last page",
+        () => { evidencePage = totalPages; rerenderEvidence(); listEl.scrollIntoView({ behavior: "smooth", block: "start" }); },
+        isLast,
+        false
+      )
+    );
+
+    const select = document.createElement("select");
+    select.id = "rows-per-page";
+    select.setAttribute("aria-label", "Rows per page");
+    select.style.padding = "6px 10px";
+    select.style.borderRadius = "var(--radius-sm, 6px)";
+    select.style.border = "1px solid var(--border, rgba(0,0,0,0.1))";
+    select.style.background = "var(--bg, transparent)";
+    select.style.color = "inherit";
+    select.style.font = "inherit";
+    ROWS_PER_PAGE_OPTIONS.forEach(function (n) {
+      const opt = document.createElement("option");
+      opt.value = String(n);
+      opt.textContent = n + " / page";
+      if (n === evidencePageSize) opt.selected = true;
+      select.appendChild(opt);
+    });
+    select.addEventListener("change", function () {
+      const next = parseInt(select.value, 10);
+      if (ROWS_PER_PAGE_OPTIONS.indexOf(next) === -1) return;
+      evidencePageSize = next;
+      evidencePage = 1;
+      rerenderEvidence();
+    });
+    pager.appendChild(select);
+
+    pager.hidden = totalItems === 0;
   }
 
   function extractEvidenceFields(rec) {
@@ -301,8 +389,8 @@
     }
 
     container.innerHTML = "";
-    const start = (evidencePage - 1) * PAGE_SIZE;
-    const pageItems = list.slice(start, start + PAGE_SIZE);
+    const start = (evidencePage - 1) * evidencePageSize;
+    const pageItems = list.slice(start, start + evidencePageSize);
     pageItems.forEach((rec) => {
       const { summary, key, vr, verdict, tx, evidenceDigest, storedAt } = extractEvidenceFields(rec);
       const chain = key.chainId || vr.chainId || "—";
