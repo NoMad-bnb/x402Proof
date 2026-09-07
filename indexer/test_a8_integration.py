@@ -50,7 +50,7 @@ EXPECTED_CLAIM_SELF_PROBE = [
     PAYEE,
     ASSET,
     "10000",
-    BLOCK_HEX,
+    "46248049",
     "self_probe",
 ]
 

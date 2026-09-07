@@ -15,6 +15,24 @@ from contracts_config import (
 from genlayer_py.types import TransactionStatus
 
 DEFAULT_WAIT_STATUS = "ACCEPTED"
+DEFAULT_WAIT_INTERVAL_MS = 5000
+DEFAULT_WAIT_RETRIES = 60
+
+
+class ContractWaitExhausted(RuntimeError):
+    """Raised when wait_for_transaction_receipt exhausts its polling window."""
+
+    def __init__(self, message, tx_hash=None, address=None,
+                 read_function_name=None, record_noun=None,
+                 contract_type=None):
+        super().__init__(message)
+        self.tx_hash = tx_hash
+        self.address = address
+        self.read_function_name = read_function_name
+        self.record_noun = record_noun
+        self.contract_type = contract_type
+
+
 
 def _append_then_read(
     client,
@@ -24,9 +42,10 @@ def _append_then_read(
     read_function_name,
     record_noun,
     wait_status=DEFAULT_WAIT_STATUS,
-    wait_interval=None,
-    wait_retries=None,
+    wait_interval=DEFAULT_WAIT_INTERVAL_MS,
+    wait_retries=DEFAULT_WAIT_RETRIES,
     capture=None,
+    contract_type=None,
 ):
     """Write to one contract, wait, read the append-only list back, and
     return the newest record, parsed.
@@ -77,23 +96,39 @@ def _append_then_read(
         wait_kwargs["retries"] = wait_retries
 
     if capture is not None:
-        # Observer mode: wait for the FULL receipt (which carries the
-        # consensus data the simplified receipt strips) and hand both the
-        # tx hash and the receipt back through the caller's dict. The
-        # return value stays the parsed record either way.
         capture["tx_hash"] = tx_hash
-        capture["receipt"] = client.wait_for_transaction_receipt(
-            transaction_hash=tx_hash,
-            status=wait_status,
-            full_transaction=True,
-            **wait_kwargs,
-        )
+        try:
+            capture["receipt"] = client.wait_for_transaction_receipt(
+                transaction_hash=tx_hash,
+                status=wait_status,
+                full_transaction=True,
+                **wait_kwargs,
+            )
+        except Exception as exc:
+            raise ContractWaitExhausted(
+                str(exc),
+                tx_hash=tx_hash,
+                address=address,
+                read_function_name=read_function_name,
+                record_noun=record_noun,
+                contract_type=contract_type,
+            ) from exc
     else:
-        client.wait_for_transaction_receipt(
-            transaction_hash=tx_hash,
-            status=wait_status,
-            **wait_kwargs,
-        )
+        try:
+            client.wait_for_transaction_receipt(
+                transaction_hash=tx_hash,
+                status=wait_status,
+                **wait_kwargs,
+            )
+        except Exception as exc:
+            raise ContractWaitExhausted(
+                str(exc),
+                tx_hash=tx_hash,
+                address=address,
+                read_function_name=read_function_name,
+                record_noun=record_noun,
+                contract_type=contract_type,
+            ) from exc
 
     raw_list = client.read_contract(
         address=address,
@@ -122,6 +157,86 @@ def _append_then_read(
         else latest
     )
 
+
+def check_transaction_receipt(
+    client,
+    address,
+    transaction_hash,
+    read_function_name,
+    record_noun,
+    wait_status=DEFAULT_WAIT_STATUS,
+    wait_interval=DEFAULT_WAIT_INTERVAL_MS,
+    wait_retries=DEFAULT_WAIT_RETRIES,
+    contract_type=None,
+):
+    """Wait for an existing transaction and read back its contract record.
+
+    This is the check-only counterpart of _append_then_read(): no
+    write_contract() is called. The caller supplies the transaction hash
+    from a prior submission and the same read function that would have
+    been used after a successful write. Returns the parsed record, or
+    raises if the wait window is exhausted.
+
+    Raises (fixed codes, never raw error text):
+        CONTRACT_WAIT_EXHAUSTED  wait_for_transaction_receipt() did not
+            reach the requested status within the supplied window
+        CONTRACT_EMPTY_READ      the read-back list came back empty
+    """
+    if client is None:
+        client = get_client()
+
+    if isinstance(wait_status, str):
+        try:
+            wait_status = TransactionStatus[wait_status]
+        except KeyError:
+            raise RuntimeError(
+                "CONTRACT_UNKNOWN_WAIT_STATUS: '" + str(wait_status)
+                + "' is not a genlayer_py TransactionStatus member "
+                "(expected ACCEPTED or FINALIZED)."
+            )
+
+    wait_kwargs = {"interval": wait_interval, "retries": wait_retries}
+
+    try:
+        receipt = client.wait_for_transaction_receipt(
+            transaction_hash=transaction_hash,
+            status=wait_status,
+            full_transaction=False,
+            **wait_kwargs,
+        )
+    except Exception as exc:
+        raise ContractWaitExhausted(
+            str(exc),
+            tx_hash=transaction_hash,
+            address=address,
+            read_function_name=read_function_name,
+            record_noun=record_noun,
+            contract_type=contract_type,
+        ) from exc
+
+    raw_list = client.read_contract(
+        address=address,
+        function_name=read_function_name,
+        args=[],
+    )
+
+    records = (
+        json.loads(raw_list)
+        if isinstance(raw_list, (str, bytes, bytearray))
+        else raw_list
+    )
+    if not records:
+        raise RuntimeError(
+            "CONTRACT_EMPTY_READ: " + read_function_name + "() returned no "
+            + record_noun + " records for an existing transaction."
+        )
+
+    latest = records[-1]
+    return (
+        json.loads(latest)
+        if isinstance(latest, (str, bytes, bytearray))
+        else latest
+    )
 
 def submit_x402_audit(claim, client=None, wait_status=DEFAULT_WAIT_STATUS,
                       wait_interval=None, wait_retries=None):
@@ -164,7 +279,9 @@ def submit_x402_audit(claim, client=None, wait_status=DEFAULT_WAIT_STATUS,
         wait_status=wait_status,
         wait_interval=wait_interval,
         wait_retries=wait_retries,
+        contract_type="x402_audit",
     )
+
 
 def submit_declaration_audit(
     facilitator_label,
@@ -216,6 +333,7 @@ def submit_declaration_audit(
         wait_status=wait_status,
         wait_interval=wait_interval,
         wait_retries=wait_retries,
+        contract_type="declaration_audit",
     )
 
 
@@ -258,6 +376,7 @@ def submit_supported_probe(
         wait_interval=wait_interval,
         wait_retries=wait_retries,
         capture=capture,
+        contract_type="supported_probe",
     )
 
 

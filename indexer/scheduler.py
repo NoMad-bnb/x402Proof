@@ -12,10 +12,23 @@ from provider_registry import load_registry, get_provider, update_status
 from http_evidence_collector import collect_and_audit
 from health import provider_health
 from retry import retry, RetryConfig, classify_failure
+from pending_tracker import get_pending, record_pending, remove_pending
+from contract_callers import (
+    submit_x402_audit,
+    submit_declaration_audit,
+    submit_supported_probe,
+    check_transaction_receipt,
+    ContractWaitExhausted,
+)
+from contracts_config import (
+    X402_AUDITOR_ADDRESS,
+    DECLARATION_AUDIT_ADDRESS,
+    SUPPORTED_PROBE_ADDRESS,
+)
 
 PROVIDERS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "providers.json")
 
-CYCLE_INTERVAL_SECONDS = 300
+CYCLE_INTERVAL_SECONDS = 600
 PROVIDER_TIMEOUT_SECONDS = 120
 
 RETRY_CONFIG = RetryConfig(
@@ -55,27 +68,109 @@ def _run_provider(provider: dict) -> dict:
             result["error"] = "provider unreachable: supported=" + str(health["checks"]["supported"]["passed"]) + " rpc=" + str(health["checks"]["rpc"]["passed"])
             return result
 
+        pending = get_pending(provider_id)
+        if pending is not None:
+            try:
+                record = _check_pending(pending)
+                remove_pending(provider_id)
+                result["outcome"] = "AUDITED"
+                result["summary"] = {
+                    "providerId": provider_id,
+                    "outcome": "AUDITED",
+                    "pendingRecovered": True,
+                    "auditRecord": record,
+                }
+                return result
+            except Exception as exc:
+                entry = record_pending(
+                    provider_id=provider_id,
+                    tx_hash=pending.get("tx_hash", ""),
+                    contract_address=pending.get("contract_address", ""),
+                    read_function_name=pending.get("read_function_name", ""),
+                    record_noun=pending.get("record_noun", ""),
+                    wait_status=pending.get("wait_status", "ACCEPTED"),
+                )
+                if _pending_expired(entry):
+                    remove_pending(provider_id)
+                    result["outcome"] = "error"
+                    result["error"] = "pending_timeout_expired: transaction still pending after max retries/age"
+                    result["failureType"] = classify_failure(exc)
+                    return result
+                result["outcome"] = "pending_timeout"
+                result["error"] = str(exc)
+                result["failureType"] = classify_failure(exc)
+                return result
+
         summary = _collect_with_retry(provider_id)
         result["outcome"] = summary.get("outcome", "unknown")
         result["summary"] = summary
+    except ContractWaitExhausted as exc:
+        contract_type = getattr(exc, "contract_type", "x402_audit")
+        entry = record_pending(
+            provider_id=provider_id,
+            tx_hash=exc.tx_hash or "",
+            contract_address=exc.address or "",
+            read_function_name=exc.read_function_name or "",
+            record_noun=exc.record_noun or "",
+            wait_status="ACCEPTED",
+            contract_type=contract_type,
+        )
+        if _pending_expired(entry):
+            remove_pending(provider_id)
+            result["outcome"] = "error"
+            result["error"] = "pending_timeout_expired: transaction still pending after max retries/age"
+            result["failureType"] = classify_failure(exc)
+        else:
+            result["outcome"] = "pending_timeout"
+            result["error"] = str(exc)
+            result["failureType"] = classify_failure(exc)
     except Exception as exc:
         result["outcome"] = "error"
         result["error"] = str(exc)
         failure_type = classify_failure(exc)
         result["failureType"] = failure_type
-
     result["finishedAt"] = datetime.now(timezone.utc).isoformat()
     return result
+
+
+_CONTRACT_READ_MAP = {
+    "x402_audit": (X402_AUDITOR_ADDRESS, "get_verdicts", "verdict"),
+    "declaration_audit": (DECLARATION_AUDIT_ADDRESS, "get_records", "declaration"),
+    "supported_probe": (SUPPORTED_PROBE_ADDRESS, "get_probes", "probe"),
+}
+
+
+def _check_pending(pending: dict) -> dict:
+    contract_address, read_function_name, record_noun = _CONTRACT_READ_MAP[pending["contract_type"]]
+    return check_transaction_receipt(
+        client=None,
+        address=contract_address,
+        transaction_hash=pending["tx_hash"],
+        read_function_name=read_function_name,
+        record_noun=record_noun,
+        wait_status=pending.get("wait_status", "ACCEPTED"),
+    )
+
+
+def _pending_expired(entry: dict) -> bool:
+    from pending_tracker import _is_stale
+    return _is_stale(entry)
 
 
 @retry(config=RETRY_CONFIG)
 def _collect_with_retry(provider_id: str) -> dict:
     """Collect and audit for one provider, with retry on transient failures."""
-    return collect_and_audit(
-        provider_id=provider_id,
-        resource_url="http://127.0.0.1:8420/resource",
-        rpc_url="https://sepolia.base.org",
-    )
+    try:
+        return collect_and_audit(
+            provider_id=provider_id,
+            resource_url="http://127.0.0.1:8420/resource",
+            rpc_url="https://sepolia.base.org",
+        )
+    except Exception as exc:
+        message = str(exc).lower()
+        if "timeexhausted" in message or "timed out" in message or "timeout" in message:
+            raise
+        raise
 
 
 def run_cycle() -> list:
@@ -137,8 +232,10 @@ def run_scheduler(
                 print("Reached max_cycles=" + str(max_cycles) + ". Stopping.")
                 break
 
-            print("Sleeping " + str(cycle_interval_seconds) + "s until next cycle...")
-            time.sleep(cycle_interval_seconds)
+            cycle_duration = (datetime.now(timezone.utc) - datetime.fromisoformat(started)).total_seconds()
+            sleep_time = max(30, cycle_interval_seconds - cycle_duration)
+            print("Sleeping " + str(int(sleep_time)) + "s until next cycle...")
+            time.sleep(sleep_time)
 
     except KeyboardInterrupt:
         print("")
