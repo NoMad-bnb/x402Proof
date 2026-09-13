@@ -1,12 +1,15 @@
 """Integration test for A7 claim builder covering REQUIREMENTS_INCOMPLETE and UNKNOWN_CLAIM_SOURCE branches."""
 
 import json
+import os
 import sys
+import tempfile
 
 sys.path.insert(0, __file__.rsplit("\\", 1)[0])
 
 import http_evidence_collector as collector
 import claim_builder
+import evidence_store
 
 GOOD_HASH = "0x" + "ab" * 32
 PAYER = "0x1d8757aae49cb66adf814ccf26658a3e31a20aa1"
@@ -184,6 +187,15 @@ def run_scenario(name, payment_result, captured_calls, expect_calls,
 
 def main():
     results = []
+    temp_handle, temp_path = tempfile.mkstemp(suffix=".json", prefix="x402_evidence_guard_")
+    os.close(temp_handle)
+    with open(temp_path, "w", encoding="utf-8") as f:
+        json.dump([], f)
+        f.write("\n")
+    # Keep JSON + SQLite + API writes out of real stores.
+    original_evidence_path = evidence_store.DEFAULT_EVIDENCE_PATH
+    evidence_store.DEFAULT_EVIDENCE_PATH = temp_path
+    os.environ["X402_DISABLE_SQLITE"] = "1"
 
     # Scenario 1: header capture, self_probe.
     captured_1 = []
@@ -320,6 +332,12 @@ def main():
     print("PASSED" if passed_3 else "FAILED")
     print("")
     results.append(passed_3)
+
+    # Restore real stores and remove temp files.
+    evidence_store.DEFAULT_EVIDENCE_PATH = original_evidence_path
+    os.environ.pop("X402_DISABLE_SQLITE", None)
+    if os.path.exists(temp_path):
+        os.remove(temp_path)
 
     total = len(results)
     passed_count = sum(1 for r in results if r)

@@ -64,8 +64,9 @@ class FakeClient:
         return json.dumps([json.dumps({"verdict": "CONFIRMED"})])
 
 
+# Keep JSON + SQLite writes out of real stores.
 def _make_temp_store():
-    handle, temp_path = tempfile.mkstemp(suffix=".json", prefix="x402_evidence_")
+    handle, temp_path = tempfile.mkstemp(suffix=".json", prefix="x402_evidence_guard_")
     os.close(handle)
     with open(temp_path, "w", encoding="utf-8") as f:
         json.dump([], f)
@@ -74,8 +75,9 @@ def _make_temp_store():
 
 
 def _patch_network(temp_path):
-    """Monkeypatch the collector's live-network seams and evidence_store,
-    returning a restore function."""
+    """Monkeypatch the collector's live-network seams."""
+    os.environ["X402_API_URL"] = ""
+    os.environ["X402_DISABLE_SQLITE"] = "1"
 
     captured_calls = []
 
@@ -128,6 +130,7 @@ def _patch_network(temp_path):
             collector.get_client,
             collector.store_evidence,
         ) = originals
+        os.environ.pop("X402_DISABLE_SQLITE", None)
 
     return restore, captured_calls
 
@@ -180,8 +183,7 @@ def run_scenario_1():
 
 
 def run_scenario_2():
-    """Re-run the exact same job -> EVIDENCE_DUPLICATE, file still has
-    exactly one record for that key."""
+    """Re-run the exact same job -> EVIDENCE_DUPLICATE."""
     temp_path = _make_temp_store()
     restore, _ = _patch_network(temp_path)
     try:
@@ -229,9 +231,9 @@ def run_scenario_2():
 
 
 def run_scenario_3():
-    """No evidence path -> store_evidence is never called, evidence file
-    stays empty."""
+    """No evidence path -> store_evidence is never called."""
     temp_path = _make_temp_store()
+    os.environ["X402_DISABLE_SQLITE"] = "1"
 
     def fake_attempt_payment(resource_url, key):
         return {
@@ -288,6 +290,7 @@ def run_scenario_3():
         collector.get_provider = original_provider
         collector.get_client = original_client
         collector.store_evidence = original_store
+        os.environ.pop("X402_DISABLE_SQLITE", None)
 
     print("=== Scenario 3: no evidence, store_evidence never called ===")
     print(json.dumps(summary, indent=2, ensure_ascii=False))
@@ -315,16 +318,9 @@ def run_scenario_3():
 
 
 def run_scenario_4():
-    """Batch-settlement branch: zero gas, no verdict.
-
-    The payment result carries scheme=batch-settlement. collect_and_audit()
-    must route to capture_batch_settlement and NOT call get_client() (no
-    GenLayer consensus round, no contract write), must not produce an
-    auditRecord/declarationRecord, must mark notJudged, and must still
-    store the evidence under its natural key so the batch class surfaces
-    in the store.
-    """
+    """Batch-settlement branch: zero gas, no verdict."""
     temp_path = _make_temp_store()
+    os.environ["X402_DISABLE_SQLITE"] = "1"
     batch_hash = "0x" + "cd" * 32
 
     batch_requirements = dict(REQUIREMENTS)
@@ -376,10 +372,7 @@ def run_scenario_4():
     original_evidence_path = evidence_store.DEFAULT_EVIDENCE_PATH
     evidence_store.DEFAULT_EVIDENCE_PATH = temp_path
 
-    # batch_evidence_capture imports verify_transaction into its OWN module
-    # namespace, so patching collector.verify_transaction does not affect
-    # it. Patch the module-level name directly to keep this scenario fully
-    # offline (no live RPC).
+    # batch_evidence_capture keeps its own module-level name.
     import batch_evidence_capture as batch_mod
     original_batch_verify = batch_mod.verify_transaction
     batch_mod.verify_transaction = fake_verify_transaction
@@ -407,6 +400,7 @@ def run_scenario_4():
         collector.store_evidence = original_store
         evidence_store.DEFAULT_EVIDENCE_PATH = original_evidence_path
         batch_mod.verify_transaction = original_batch_verify
+        os.environ.pop("X402_DISABLE_SQLITE", None)
 
     print("=== Scenario 4: batch-settlement branch is zero-gas and un-judged ===")
     print(json.dumps(summary, indent=2, ensure_ascii=False))

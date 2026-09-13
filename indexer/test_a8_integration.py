@@ -3,10 +3,12 @@
 import json
 import os
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import contract_callers
+import evidence_store
 import http_evidence_collector as collector
 
 GOOD_HASH = "0x" + "ab" * 32
@@ -337,11 +339,22 @@ def run_scenario_3():
 
 
 def main():
+    temp_handle, temp_path = tempfile.mkstemp(suffix=".json", prefix="x402_evidence_guard_")
+    os.close(temp_handle)
+    # Keep JSON + SQLite + API writes out of real stores.
+    original_evidence_path = evidence_store.DEFAULT_EVIDENCE_PATH
+    evidence_store.DEFAULT_EVIDENCE_PATH = temp_path
+    os.environ["X402_DISABLE_SQLITE"] = "1"
     results = [
         run_scenario_1(),
         run_scenario_2(),
         run_scenario_3(),
     ]
+    # Restore real stores and remove temp files.
+    evidence_store.DEFAULT_EVIDENCE_PATH = original_evidence_path
+    os.environ.pop("X402_DISABLE_SQLITE", None)
+    if os.path.exists(temp_path):
+        os.remove(temp_path)
     total = len(results)
     passed_count = sum(1 for r in results if r)
     print("")

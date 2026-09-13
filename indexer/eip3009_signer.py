@@ -96,7 +96,7 @@ def sign_authorization(
 
     token_name and token_version MUST come from the facilitator's own
     PaymentRequirements.extra field (e.g. {"name":"USDC","version":"2"}
-    captured live in handoff section 14), never hardcoded here, because a
+    captured live), never hardcoded here, because a
     wrong EIP-712 domain produces a signature that recovers to a different
     address than intended and simply fails verification with no useful
     error message pointing back at the domain mismatch.

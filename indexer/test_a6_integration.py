@@ -1,10 +1,13 @@
 """Integration test for A6 RPC verification adapter against a fake RPC server."""
 
 import json
+import os
 import sys
+import tempfile
 
 sys.path.insert(0, __file__.rsplit("\\", 1)[0])
 
+import evidence_store
 import http_evidence_collector as collector
 import rpc_verification_adapter as adapter
 
@@ -13,6 +16,8 @@ PAYER = "0x1d8757aae49cb66adf814ccf26658a3e31a20aa1"
 PAYEE = "0x572bb4287aacbd42d647d611459e996ec9c89c52"
 ASSET = "0x036cbd53842c5426634e7929541ec2318f3dcf7e"
 BLOCK_HEX = "0x2c1b071"
+# Anchor block is forwarded to the contract in decimal (collector conversion).
+ANCHOR_DECIMAL = str(int(BLOCK_HEX, 16))
 
 REQUIREMENTS = {
     "scheme": "exact",
@@ -29,6 +34,14 @@ PROVIDER = {
     "label": "test-provider",
     "known_declaration_url": None,
 }
+
+
+def _make_temp_store():
+    handle, temp_path = tempfile.mkstemp(suffix=".json", prefix="x402_evidence_guard_")
+    os.close(handle)
+    with open(temp_path, "w", encoding="utf-8") as handle:
+        handle.write("[]\n")
+    return temp_path
 
 
 def make_fake_rpc(chain_id="0x14a34", tx_found=True, receipt_status="0x1",
@@ -159,6 +172,12 @@ def run_scenario(name, payment_result, rpc_fake, expect_audit_called,
 def main():
     results = []
 
+    # Keep JSON + SQLite stores untouched (same pattern as test_a9).
+    temp_path = _make_temp_store()
+    original_evidence_path = evidence_store.DEFAULT_EVIDENCE_PATH
+    evidence_store.DEFAULT_EVIDENCE_PATH = temp_path
+    os.environ["X402_DISABLE_SQLITE"] = "1"
+
     # Scenario 1: header capture with valid transaction hash.
     payment_result = {
         "initialStatus": 402,
@@ -179,7 +198,7 @@ def main():
         make_fake_rpc(),
         expect_audit_called=True,
         expect_verification_status="VERIFIED",
-        expect_anchor=BLOCK_HEX,
+        expect_anchor=ANCHOR_DECIMAL,
     ))
 
     # Scenario 2: RPC fallback path. find_settlement_transfer is stubbed
@@ -239,7 +258,7 @@ def main():
     passed2 = (
         len(calls["audit"]) == 1
         and summary2.get("verificationStatus") == "VERIFIED"
-        and calls["audit"][0].get("anchor_block", "") == BLOCK_HEX
+        and calls["audit"][0].get("anchor_block", "") == ANCHOR_DECIMAL
         and summary2.get("evidenceSource") == "rpc_fallback"
     )
     print("PASSED" if passed2 else "FAILED")
@@ -301,6 +320,11 @@ def main():
     print("")
     results.append(passed3)
 
+    # Restore real stores and remove temp files.
+    evidence_store.DEFAULT_EVIDENCE_PATH = original_evidence_path
+    os.environ.pop("X402_DISABLE_SQLITE", None)
+    if os.path.exists(temp_path):
+        os.remove(temp_path)
     total = len(results)
     passed_count = sum(1 for r in results if r)
     print("")

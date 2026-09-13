@@ -5,8 +5,7 @@ import os
 import sys
 import time
 
-# Portable/embeddable Python does not add the running script's own
-# folder to sys.path (handoff section 23, note 12).
+# Portable Python does not add the running script's own folder to sys.path.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from genlayer_py.types import (

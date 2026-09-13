@@ -35,11 +35,7 @@ def build_claim(
         claim: the 16-element list when status is CLAIM_READY, else None
         fields: dict of the named fields, for logging
     """
-    # claim_source must be valid if non-empty. Empty is allowed (the
-    # contract defaults it to "discovered_only", handoff section 9). Any
-    # other value would produce UNDETERMINED_UNKNOWN_CLAIM_SOURCE inside
-    # the contract, which is a waste of a consensus round, so refuse it
-    # here before any gas is spent.
+    # claim_source must be one of self_probe/discovered_only/reported, or empty (contract defaults to "discovered_only").
     source = claim_source.strip().lower() if isinstance(claim_source, str) else ""
     allowed_sources = {"self_probe", "discovered_only", "reported"}
     if source != "" and source not in allowed_sources:

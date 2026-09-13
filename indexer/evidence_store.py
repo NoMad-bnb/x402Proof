@@ -149,13 +149,14 @@ def store_evidence(summary, path=None):
         json.dump(existing, handle, indent=2, ensure_ascii=False)
         handle.write("\n")
 
-    # Also store in SQLite if available
-    try:
-        import database as db_module
-        if db_module.DB_PATH.exists():
-            db_module.insert_evidence(entry)
-    except Exception:
-        pass
+    # Write to SQLite unless disabled for tests.
+    if os.environ.get("X402_DISABLE_SQLITE", "") == "":
+        try:
+            import database as db_module
+            if db_module.DB_PATH.exists():
+                db_module.insert_evidence(entry)
+        except Exception:
+            pass
 
     # Also push to remote API if configured
     _push_evidence_to_api(entry)

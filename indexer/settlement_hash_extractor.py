@@ -158,8 +158,7 @@ def extract_from_batch_claim(claim: dict) -> dict:
     """
     raise NotImplementedError(
         "extract_from_batch_claim is intentionally not implemented. "
-        "The batch settlement scheme is untested in this project (see "
-        "handoff section 19 and section 7's 'upto' precedent). A batch "
+        "The batch settlement scheme is untested in this project. A batch "
         "claim can contain multiple settlement hashes and this function "
         "must not silently pick one and drop the others."
     )

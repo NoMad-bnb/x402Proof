@@ -452,12 +452,7 @@ def judge(evidence_json: str, facilitator: str, claim: dict, req: dict) -> dict:
         record["verdict"] = "REJECTED_AMOUNT_DOES_NOT_SATISFY_REQUIREMENT"
         return record
 
-    # v12: more than one transfer in this transaction satisfies the
-    # requirement. The current contract used to pick settled[0] silently
-    # (by receipt log order), which is precisely the "accidental match"
-    # risk the road map warns about (handoff section 7 / 18.26). We never
-    # guess: we publish the ambiguity, with every candidate, and we do NOT
-    # count any money — none of the candidates is provably THE settlement.
+    # v12: multiple matching transfers are published as ambiguous; no candidate is counted as THE settlement.
     if len(settled) > 1:
         record["candidateCount"] = len(settled)
         record["candidateAmounts"] = [t["amount"] for t in settled]

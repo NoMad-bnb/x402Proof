@@ -18,9 +18,7 @@ load_dotenv(_ENV_FILE)
 FACILITATOR_BASE = "https://x402.org/facilitator"
 REQUEST_TIMEOUT_SECONDS = 30
 
-# Base Sepolia USDC. Same value independently confirmed twice: handoff
-# section 14's field-measured constant, and the official spec's own worked
-# example in specs/x402-specification-v2.md section 5.1.1, fetched live.
+# Base Sepolia USDC, confirmed against the official x402 spec worked example.
 USDC_BASE_SEPOLIA = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
 NETWORK = "eip155:84532"
 

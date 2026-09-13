@@ -18,7 +18,7 @@ EIP3009_SELECTOR = "0xe3ee160e"
 
 REQUEST_TIMEOUT_SECONDS = 30
 
-# Base Sepolia block time measured live in handoff section 20.
+# Base Sepolia block time measured live.
 DEFAULT_BLOCK_TIME_SECONDS = 2
 
 NETWORK_CHAIN_IDS = {
@@ -154,8 +154,8 @@ def _decode_transfer(logs: list, asset_address: str = None) -> dict:
 
 def _decode_authorization(tx_input: str) -> dict:
     """Check whether the transaction's input data starts with the
-    EIP-3009 transferWithAuthorization selector (handoff section 14:
-    0xe3ee160e). This is evidence, not a full decode: the contract does
+    EIP-3009 transferWithAuthorization selector (0xe3ee160e). This is
+    evidence, not a full decode: the contract does
     the full authorization decode (Keccak256, ecrecover, nonce check)
     inside GenLayer. This file only records whether the selector is
     present, so A7 can decide whether to pass the transaction to the

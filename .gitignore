@@ -30,7 +30,6 @@ desktop.ini
 
 # Git
 .git/
-.github/
 
 # IDE
 .vscode/
@@ -43,5 +42,9 @@ indexer/evidence.json
 indexer/providers.json
 402proof-site/README.md
 indexer/candidates.json
+indexer/pending_transactions.json
+
+# Manual-run / one-time utilities (local only)
 indexer/generate_indexer_account.py
 indexer/run_a8_live_probe.py
+indexer/migrate.py
