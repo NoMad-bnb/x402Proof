@@ -33,7 +33,7 @@ def _patch_scheduler():
     """Monkeypatch network seams, returning a restore function."""
     call_log = []
 
-    def fake_collect_and_audit(provider_id, resource_url, rpc_url, payer_private_key=None):
+    def fake_collect_and_audit(provider_id, resource_url, rpc_url, payer_private_key=None, method="GET", body=None, scope=None):
         call_log.append(("collect", provider_id))
         if provider_id == "provider-retry":
             call_log.append(("attempt", provider_id))
@@ -174,11 +174,72 @@ def run_scenario_3():
     return passed
 
 
+def run_scenario_4():
+    """Provider with a registry resource: the scheduler pays THAT resource
+    and labels the record real_facilitator_audit."""
+    restore, call_log, _, _ = _patch_scheduler()
+    captured = {}
+
+    def capturing_collect(provider_id, resource_url, rpc_url, payer_private_key=None, method="GET", body=None, scope=None):
+        captured["provider_id"] = provider_id
+        captured["resource_url"] = resource_url
+        captured["method"] = method
+        captured["body"] = body
+        captured["scope"] = scope
+        return {"outcome": "AUDITED", "auditVerdict": "CONFIRMED", "providerId": provider_id}
+
+    provider = {
+        "provider_id": "provider-real",
+        "label": "Real Resource Provider",
+        "supported_url": "https://example.com/supported",
+        "resource_urls": [
+            {
+                "url": "https://real.example/protected",
+                "method": "POST",
+                "body": {"q": "x"},
+            }
+        ],
+    }
+    try:
+        original_load = scheduler.load_providers
+        scheduler.load_providers = lambda path="": [provider]
+        scheduler.collect_and_audit = capturing_collect
+        results = scheduler.one_shot()
+    finally:
+        scheduler.load_providers = original_load
+        restore()
+
+    print("=== Scenario 4: registry resource replaces the local seller ===")
+    print(json.dumps(captured, indent=2, ensure_ascii=False))
+
+    passed = True
+    if len(results) != 1 or results[0].get("outcome") != "AUDITED":
+        print("FAIL: expected one AUDITED result, got " + json.dumps(results))
+        passed = False
+    if captured.get("resource_url") != "https://real.example/protected":
+        print("FAIL: resource_url not taken from the registry: " + str(captured.get("resource_url")))
+        passed = False
+    if captured.get("method") != "POST":
+        print("FAIL: method not forwarded, got " + str(captured.get("method")))
+        passed = False
+    if captured.get("body") != {"q": "x"}:
+        print("FAIL: body not forwarded, got " + str(captured.get("body")))
+        passed = False
+    if captured.get("scope") != "real_facilitator_audit":
+        print("FAIL: scope not labeled real_facilitator_audit, got " + str(captured.get("scope")))
+        passed = False
+
+    print("PASSED" if passed else "FAILED")
+    print("")
+    return passed
+
+
 def main():
     results = [
         run_scenario_1(),
         run_scenario_2(),
         run_scenario_3(),
+        run_scenario_4(),
     ]
     total = len(results)
     passed_count = sum(1 for r in results if r)

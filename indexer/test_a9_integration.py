@@ -81,7 +81,7 @@ def _patch_network(temp_path):
 
     captured_calls = []
 
-    def fake_attempt_payment(resource_url, key):
+    def fake_attempt_payment(resource_url, key, method="GET", body=None):
         return PAYMENT_RESULT_HEADER_CAPTURE
 
     def fake_find_settlement_transfer(**kwargs):
@@ -235,7 +235,7 @@ def run_scenario_3():
     temp_path = _make_temp_store()
     os.environ["X402_DISABLE_SQLITE"] = "1"
 
-    def fake_attempt_payment(resource_url, key):
+    def fake_attempt_payment(resource_url, key, method="GET", body=None):
         return {
             "initialStatus": 402,
             "requirements": REQUIREMENTS,
@@ -327,7 +327,7 @@ def run_scenario_4():
     batch_requirements["scheme"] = "batch-settlement"
     batch_requirements["amount"] = "100000"
 
-    def fake_attempt_payment(resource_url, key):
+    def fake_attempt_payment(resource_url, key, method="GET", body=None):
         return {
             "initialStatus": 402,
             "requirements": batch_requirements,

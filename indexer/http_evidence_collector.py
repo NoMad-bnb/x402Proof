@@ -151,6 +151,9 @@ def collect_and_audit(
     resource_url: str,
     rpc_url: str = DEFAULT_RPC_URL,
     payer_private_key: str = None,
+    method: str = "GET",
+    body=None,
+    scope: str = None,
 ) -> dict:
     """The full A4 pipeline for one payment against one resource:
 
@@ -159,6 +162,11 @@ def collect_and_audit(
         3. If we have a transaction hash, feed X402Auditor.audit()
         4. If the provider also has a known_declaration_url, feed
            DeclarationAudit.audit_declaration() with the same hash
+
+    method/body are forwarded to the payment client for POST resources.
+    scope labels the audit kind ("self_probe" for the internal seller,
+    "real_facilitator_audit" for an external resource) and is stored in
+    the summary so the dashboard can distinguish the two honestly.
 
     Returns a summary dict recording what actually happened at each step,
     even the outcomes that produced no on-chain audit, because a run that
@@ -171,9 +179,11 @@ def collect_and_audit(
 
     key = payer_private_key or _payer_key_from_env()
 
-    summary = {"providerId": provider_id, "resourceUrl": resource_url}
+    summary = {"providerId": provider_id, "resourceUrl": resource_url, "method": method}
+    if scope:
+        summary["scope"] = scope
 
-    payment_result = attempt_payment(resource_url, key)
+    payment_result = attempt_payment(resource_url, key, method=method, body=body)
     summary["initialStatus"] = payment_result["initialStatus"]
 
     if payment_result["initialStatus"] != 402:

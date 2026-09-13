@@ -409,6 +409,7 @@
             <div class="ev-hash">${escapeHtml(truncate(tx, 14, 10))}</div>
             <div class="ev-meta">
               <span class="chip">${escapeHtml(summary.providerId || "—")}</span>
+              ${summary.scope ? `<span class="chip">${escapeHtml(summary.scope)}</span>` : ""}
               <span class="chip">${escapeHtml(summary.evidenceSource || "—")}</span>
               <span class="chip">${escapeHtml(vr.networkLabel || chain)}</span>
             </div>
@@ -433,6 +434,7 @@
             <dt>Transaction</dt><dd>${escapeHtml(tx)}</dd>
             <dt>Chain ID</dt><dd>${escapeHtml(String(chain))}</dd>
             <dt>Provider</dt><dd>${escapeHtml(summary.providerId || "—")}</dd>
+            ${summary.scope ? `<dt>Scope</dt><dd>${escapeHtml(summary.scope)}</dd>` : ""}
             <dt>Evidence source</dt><dd>${escapeHtml(summary.evidenceSource || "—")}</dd>
             <dt>Evidence digest</dt><dd>${escapeHtml(evidenceDigest || "—")}</dd>
             <dt>Stored at</dt><dd>${escapeHtml(storedAt || "—")}</dd>

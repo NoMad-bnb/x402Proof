@@ -151,6 +151,8 @@ def decode_settlement_header(value: str):
 def attempt_payment(
     resource_url: str,
     payer_private_key: str,
+    method: str = "GET",
+    body=None,
     valid_after_skew_seconds: int = 60,
     timeout_seconds: int = REQUEST_TIMEOUT_SECONDS,
 ) -> dict:
@@ -164,8 +166,13 @@ def attempt_payment(
     and write nothing, never be silently absorbed into a fabricated
     result.
 
+    method is the HTTP method the PAID request must use (GET for most
+    resources, POST for JSON-body resources); body is the JSON payload sent
+    with POST. Both the unpaid probe and the paid retry repeat the SAME
+    method and body, per the x402 flow. Only GET and POST are supported.
+
     Result shape (fields always present):
-        resourceUrl, requestedAt (unix ts)
+        resourceUrl, requestedAt (unix ts), method
         initialStatus
         requirements (dict) or None if no 402 was received
         payerAddress
@@ -177,12 +184,21 @@ def attempt_payment(
             or None if neither was present in the retry response)
         settlementClaim (dict decoded from that header) or None
     """
+    method = method.upper()
+    if method not in ("GET", "POST"):
+        raise ValueError("unsupported payment method: " + str(method))
+
+    request_kwargs = {"timeout": timeout_seconds}
+    if method == "POST" and body is not None:
+        request_kwargs["json"] = body
+
     result = {
         "resourceUrl": resource_url,
         "requestedAt": int(time.time()),
+        "method": method,
     }
 
-    initial = requests.get(resource_url, timeout=timeout_seconds)
+    initial = requests.request(method, resource_url, **request_kwargs)
     result["initialStatus"] = initial.status_code
 
     if initial.status_code != 402:
@@ -238,10 +254,11 @@ def attempt_payment(
     )
     result["clientHeaderNameUsed"] = client_header_name
 
-    retry = requests.get(
+    retry = requests.request(
+        method,
         resource_url,
         headers={client_header_name: header_value},
-        timeout=timeout_seconds,
+        **request_kwargs,
     )
     result["retryStatus"] = retry.status_code
 

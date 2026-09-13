@@ -88,7 +88,7 @@ def run_scenario(name, payment_result, rpc_fake, expect_audit_called,
     network/GenLayer functions monkeypatched out."""
     calls = {"audit": [], "declaration": [], "verify": []}
 
-    def fake_attempt_payment(resource_url, key):
+    def fake_attempt_payment(resource_url, key, method="GET", body=None):
         return payment_result
 
     def fake_find_settlement_transfer(**kwargs):
@@ -207,7 +207,7 @@ def main():
     # find_settlement_transfer inside a custom block.
     calls = {"audit": []}
 
-    def fake_attempt_payment_2(resource_url, key):
+    def fake_attempt_payment_2(resource_url, key, method="GET", body=None):
         return {
             "initialStatus": 402,
             "requirements": REQUIREMENTS,
@@ -267,7 +267,7 @@ def main():
 
     # Scenario 3: no header, no RPC match. A6 and the contract must never
     # be called.
-    def fake_attempt_payment_3(resource_url, key):
+    def fake_attempt_payment_3(resource_url, key, method="GET", body=None):
         return {
             "initialStatus": 402,
             "requirements": REQUIREMENTS,

@@ -28,6 +28,12 @@ from contracts_config import (
 
 PROVIDERS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "providers.json")
 
+# The internal self-probe seller. Providers WITHOUT a registry resource_url
+# keep paying here, and every evidence record they produce is labeled
+# scope=self_probe so the dashboard never presents it as facilitator data.
+SELF_PROBE_RESOURCE_URL = "http://127.0.0.1:8420/resource"
+SELF_PROBE_RPC_URL = "https://sepolia.base.org"
+
 CYCLE_INTERVAL_SECONDS = 600
 PROVIDER_TIMEOUT_SECONDS = 120
 
@@ -101,7 +107,7 @@ def _run_provider(provider: dict) -> dict:
                 result["failureType"] = classify_failure(exc)
                 return result
 
-        summary = _collect_with_retry(provider_id)
+        summary = _collect_with_retry(provider)
         result["outcome"] = summary.get("outcome", "unknown")
         result["summary"] = summary
     except ContractWaitExhausted as exc:
@@ -157,14 +163,46 @@ def _pending_expired(entry: dict) -> bool:
     return _is_stale(entry)
 
 
+def _resource_config_for(provider: dict) -> dict:
+    """Pick the payment target for one provider: a real, externally served
+    resource when the registry lists one, otherwise the internal self-probe
+    seller. The scope label travels with the request so every stored
+    evidence record states honestly which kind of audit produced it."""
+    for entry in provider.get("resource_urls") or []:
+        if isinstance(entry, dict) and entry.get("url"):
+            return {
+                "url": str(entry["url"]),
+                "method": str(entry.get("method", "GET")).upper(),
+                "body": entry.get("body"),
+                "scope": "real_facilitator_audit",
+            }
+        if isinstance(entry, str) and entry:
+            return {
+                "url": entry,
+                "method": "GET",
+                "body": None,
+                "scope": "real_facilitator_audit",
+            }
+    return {
+        "url": SELF_PROBE_RESOURCE_URL,
+        "method": "GET",
+        "body": None,
+        "scope": "self_probe",
+    }
+
+
 @retry(config=RETRY_CONFIG)
-def _collect_with_retry(provider_id: str) -> dict:
+def _collect_with_retry(provider: dict) -> dict:
     """Collect and audit for one provider, with retry on transient failures."""
     try:
+        config = _resource_config_for(provider)
         return collect_and_audit(
-            provider_id=provider_id,
-            resource_url="http://127.0.0.1:8420/resource",
-            rpc_url="https://sepolia.base.org",
+            provider_id=provider.get("provider_id", ""),
+            resource_url=config["url"],
+            rpc_url=SELF_PROBE_RPC_URL,
+            method=config["method"],
+            body=config["body"],
+            scope=config["scope"],
         )
     except Exception as exc:
         message = str(exc).lower()

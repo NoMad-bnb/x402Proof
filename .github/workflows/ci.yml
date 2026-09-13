@@ -61,7 +61,7 @@ jobs:
           python database.py
           python consensus_observer.py self-test
 
-      - name: Integration and contract tests (7 files)
+      - name: Integration and contract tests (8 files)
         run: |
           python test_a6_integration.py
           python test_a7_integration.py
@@ -70,6 +70,7 @@ jobs:
           python test_a10_integration.py
           python test_ambiguous_multi_transfer.py
           python test_upto_amount_semantics.py
+          python test_payment_client_methods.py
 
       - name: API tests
         run: python test_api_integration.py

@@ -112,6 +112,10 @@ def _run_self_test() -> None:
     """Offline self-test with a temp evidence file and a stubbed verification path."""
     import tempfile
 
+    # The capture writes to a temp evidence file; keep the real SQLite
+    # cache out of it too.
+    os.environ["X402_DISABLE_SQLITE"] = "1"
+
     checks = []
 
     # --- is_batch_scheme -----------------------------------------------
@@ -262,6 +266,8 @@ def _run_self_test() -> None:
         result2["outcome"] == "BATCH_CAPTURED_NOT_JUDGED"
         and "evidenceStoreStatus" not in result2,
     ))
+
+    os.environ.pop("X402_DISABLE_SQLITE", None)
 
     failures = 0
     for description, passed in checks:

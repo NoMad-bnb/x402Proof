@@ -96,7 +96,7 @@ def run_scenario(name, payment_result, captured_calls, expect_calls,
                  expected_claim=None):
     """Run collect_and_audit with network/GenLayer monkeypatched out,
     capturing the args passed to write_contract."""
-    def fake_attempt_payment(resource_url, key):
+    def fake_attempt_payment(resource_url, key, method="GET", body=None):
         return payment_result
 
     def fake_find_settlement_transfer(**kwargs):
@@ -244,7 +244,7 @@ def main():
     original_provider = collector.get_provider
     original_client = collector.get_client
 
-    collector.attempt_payment = lambda resource_url, key: {
+    collector.attempt_payment = lambda resource_url, key, method="GET", body=None: {
         "initialStatus": 402,
         "requirements": REQUIREMENTS,
         "retryStatus": 200,
@@ -297,7 +297,7 @@ def main():
     original_provider = collector.get_provider
     original_client = collector.get_client
 
-    collector.attempt_payment = lambda resource_url, key: {
+    collector.attempt_payment = lambda resource_url, key, method="GET", body=None: {
         "initialStatus": 402,
         "requirements": REQUIREMENTS,
         "retryStatus": 200,

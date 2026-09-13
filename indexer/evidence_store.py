@@ -192,6 +192,10 @@ def _run_self_test() -> None:
     evidence.json is never touched."""
     import tempfile
 
+    # Store checks below write via store_evidence; keep the real SQLite
+    # cache out of it (the JSON side stays on the temp file).
+    os.environ["X402_DISABLE_SQLITE"] = "1"
+
     checks = []
 
     with tempfile.NamedTemporaryFile(
@@ -368,6 +372,7 @@ def _run_self_test() -> None:
         for candidate in [temp_path, missing_path, corrupt_path]:
             if candidate and os.path.exists(candidate):
                 os.remove(candidate)
+        os.environ.pop("X402_DISABLE_SQLITE", None)
 
     failures = 0
     for description, passed in checks:

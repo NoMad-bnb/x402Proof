@@ -101,7 +101,7 @@ def _patch_collector_network(client, payment_result):
     restore function. get_client is replaced so the delegating submit
     functions receive OUR client through their own namespace seam."""
 
-    def fake_attempt_payment(resource_url, key):
+    def fake_attempt_payment(resource_url, key, method="GET", body=None):
         return payment_result
 
     def fake_find_settlement_transfer(**kwargs):
