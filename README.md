@@ -79,7 +79,9 @@ An external indexer runs on a schedule and, for each known facilitator:
 - Verifies the transaction on-chain using a Base Sepolia RPC node.
 - Builds a structured claim with explicit source attribution.
 
-If no settlement evidence is found within the provider timeout, the record is marked `PENDING_NO_EVIDENCE_YET` and retried on the next cycle.
+When the registry lists real paid resources for a facilitator (`resource_urls`), the scheduler pays that external resource through the facilitator being audited and tags the evidence record `scope: real_facilitator_audit`. Facilitators without a listed resource are probed against the internal test resource and tagged `scope: self_probe`, so the dashboard never presents them as facilitator-specific settlements.
+
+If no settlement evidence is found on the first pass, the record is marked `PENDING_NO_EVIDENCE_YET` and retried on the next cycle.
 
 ### 2. Independent Audit (GenLayer)
 
@@ -198,9 +200,19 @@ Every verdict is the output of a deterministic function over the same on-chain b
 
 ---
 
+## Tests
+
+The repository ships an offline verification suite that runs automatically on GitHub Actions for every push:
+
+- 12 module self-tests, each proving the module's own contract
+- 8 integration, contract, and API test files (the API is tested through FastAPI's TestClient)
+- Every store write in the suite is redirected to temporary files, so running it never touches the real evidence store, the local SQLite cache, or the remote API
+
+---
+
 ## Roadmap
 
-1. **Independent Verification** - 3 GenLayer contracts live, consensus verified, dashboard live.
+1. **Independent Verification** - 3 GenLayer contracts live, consensus verified, dashboard live, per-facilitator real-resource audits implemented.
 2. **Resilience** - Completed: pending transaction tracking with check-only retry; extended consensus windows; dynamic scheduler intervals.
 3. **Transparency** - One-click independent verification links in every evidence record.
 4. **Qualitative Layer (Phase D)** - LLM-based comparison of written promises vs. observed behavior, isolated from deterministic verdicts.
@@ -215,6 +227,7 @@ This roadmap reflects the current direction. Additional features and improvement
 - **The interface is a cache, not a source.** Every figure is derivable from the contract. Raw evidence is published. Anyone can recompute and expose discrepancies.
 - **Deterministic over descriptive.** All settlement verdicts are deterministic. Language models are optional and never adjudicate payment outcomes.
 - **Explicit claim sources.** Every audit claim declares whether it came from self-probe, third-party report, or chain-only discovery. The contract adapts its verdict accordingly.
+- **Explicit audit scope.** Every stored evidence record carries a `scope` tag: `real_facilitator_audit` when the settlement ran against an external resource of that facilitator, `self_probe` when it ran against the internal test resource. The dashboard renders it beside the verdict.
 
 ---
 
@@ -226,4 +239,4 @@ Proprietary. All rights reserved.
 
 ## Status
 
-This project is **under active development**. The current version is a working prototype on Base Sepolia and GenLayer Studio. Features, interfaces, and supported facilitators may change before the final release.
+This project is **under active development**. The current version is a working prototype on Base Sepolia and GenLayer Studio. Features, interfaces, and supported facilitators may change before the final release. All blockchain activity runs on test networks only (Base Sepolia and GenLayer Studio); no mainnet keys or funds are used.

@@ -253,6 +253,49 @@ def run_scenario_5():
     return passed
 
 
+def run_scenario_6():
+    """A provider with a NULL status must still be served (regression)."""
+    passed = True
+    print("=== Scenario 6: NULL provider status is served ===")
+    provider = {
+        "provider_id": "api-test-null-status",
+        "label": "API Test Null Status",
+        "facilitator_base_url": "https://null-status.example",
+        "supported_url": None,
+        "verify_url": None,
+        "settle_url": None,
+        "known_declaration_url": None,
+        "networks": [],
+        "last_seen": None,
+        "status": None,
+    }
+    ingest = CLIENT.post("/ingest/providers", json={"providers": [provider]})
+    if ingest.status_code != 200 or ingest.json().get("ingested") != 1:
+        print("FAIL: ingest -> " + str(ingest.status_code) + " " + ingest.text)
+        passed = False
+
+    listing = CLIENT.get("/facilitators")
+    if listing.status_code != 200:
+        print("FAIL: /facilitators -> " + str(listing.status_code) + " "
+              + listing.text)
+        passed = False
+
+    single = CLIENT.get("/facilitators/api-test-null-status")
+    if single.status_code != 200:
+        print("FAIL: single read -> " + str(single.status_code) + " "
+              + single.text)
+        passed = False
+    else:
+        if single.json().get("status") is not None:
+            print("FAIL: status should be null, got "
+                  + str(single.json().get("status")))
+            passed = False
+
+    print("PASSED" if passed else "FAILED")
+    print("")
+    return passed
+
+
 def main():
     database.init_database()
     results = []
@@ -263,6 +306,7 @@ def main():
             run_scenario_3(),
             run_scenario_4(),
             run_scenario_5(),
+            run_scenario_6(),
         ]
     finally:
         database.DB_PATH = _ORIGINAL_DB_PATH

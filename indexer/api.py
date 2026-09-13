@@ -57,7 +57,7 @@ class ProviderResponse(BaseModel):
     known_declaration_url: str | None
     networks: list[str]
     last_seen: str | None
-    status: str
+    status: str | None
 
 
 class EvidenceRecordResponse(BaseModel):

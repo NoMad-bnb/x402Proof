@@ -1,4 +1,4 @@
-"""Main automation loop that cycles providers with health checks, retry, and per-provider timeouts."""
+"""Main automation loop that cycles providers with health checks and retry."""
 
 import json
 import os
@@ -35,7 +35,6 @@ SELF_PROBE_RESOURCE_URL = "http://127.0.0.1:8420/resource"
 SELF_PROBE_RPC_URL = "https://sepolia.base.org"
 
 CYCLE_INTERVAL_SECONDS = 600
-PROVIDER_TIMEOUT_SECONDS = 120
 
 RETRY_CONFIG = RetryConfig(
     max_attempts=2,

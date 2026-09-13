@@ -196,6 +196,7 @@ def main():
     original_evidence_path = evidence_store.DEFAULT_EVIDENCE_PATH
     evidence_store.DEFAULT_EVIDENCE_PATH = temp_path
     os.environ["X402_DISABLE_SQLITE"] = "1"
+    os.environ["X402_API_URL"] = ""
 
     # Scenario 1: header capture, self_probe.
     captured_1 = []
@@ -336,6 +337,7 @@ def main():
     # Restore real stores and remove temp files.
     evidence_store.DEFAULT_EVIDENCE_PATH = original_evidence_path
     os.environ.pop("X402_DISABLE_SQLITE", None)
+    os.environ.pop("X402_API_URL", None)
     if os.path.exists(temp_path):
         os.remove(temp_path)
 
