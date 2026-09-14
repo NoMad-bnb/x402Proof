@@ -37,6 +37,28 @@ SETTLEMENT_CLAIM = {
 }
 SETTLEMENT_HEADER = base64.b64encode(json.dumps(SETTLEMENT_CLAIM).encode("utf-8")).decode("ascii")
 
+# The live shape https://x402.org/protected serves: empty JSON body, the
+# PaymentRequired object base64-encoded in the PAYMENT-REQUIRED header.
+HEADER_REQUIREMENTS = {
+    "x402Version": 2,
+    "error": "Payment required",
+    "resource": {
+        "url": "https://x402.vercel.app/protected",
+        "description": "Access to protected content",
+        "mimeType": "",
+    },
+    "accepts": [
+        {
+            "scheme": "exact",
+            "network": "eip155:84532",
+            "amount": "10000",
+            "asset": "0x" + "33" * 20,
+            "payTo": "0x" + "44" * 20,
+            "maxTimeoutSeconds": 300,
+        }
+    ],
+}
+
 
 class FakeResponse:
     def __init__(self, status_code, text="", headers=None):
@@ -197,12 +219,49 @@ def run_scenario_4():
     return passed
 
 
+def run_scenario_5():
+    """402 with an empty body: requirements come from the PAYMENT-REQUIRED
+    header (the exact shape https://x402.org/protected serves live)."""
+    header_value = base64.b64encode(
+        json.dumps(HEADER_REQUIREMENTS).encode("utf-8")
+    ).decode("ascii")
+    fake = FakeRequests([
+        FakeResponse(402, "{}", {"PAYMENT-REQUIRED": header_value}),
+        FakeResponse(200, "{}", {"X-PAYMENT-RESPONSE": SETTLEMENT_HEADER}),
+    ])
+    restore = _patch_requests(fake)
+    try:
+        result = client.attempt_payment("https://example.test/protected", KEY)
+    finally:
+        restore()
+
+    print("=== Scenario 5: requirements from the PAYMENT-REQUIRED header ===")
+    passed = True
+    requirements = result.get("requirements") or {}
+    if requirements.get("maxAmountRequired") != "10000":
+        print("FAIL: header requirements not parsed: " + json.dumps(requirements))
+        passed = False
+    if result.get("requirementsSource") != "header":
+        print("FAIL: requirementsSource should be header, got "
+              + str(result.get("requirementsSource")))
+        passed = False
+    if result.get("retryStatus") != 200 or result.get("settlementClaim") != SETTLEMENT_CLAIM:
+        print("FAIL: paid retry did not complete: "
+              + json.dumps({k: result.get(k) for k in ("retryStatus", "settlementClaim")}))
+        passed = False
+
+    print("PASSED" if passed else "FAILED")
+    print("")
+    return passed
+
+
 def main():
     results = [
         run_scenario_1(),
         run_scenario_2(),
         run_scenario_3(),
         run_scenario_4(),
+        run_scenario_5(),
     ]
     total = len(results)
     passed_count = sum(1 for r in results if r)

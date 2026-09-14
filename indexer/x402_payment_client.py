@@ -175,6 +175,7 @@ def attempt_payment(
         resourceUrl, requestedAt (unix ts), method
         initialStatus
         requirements (dict) or None if no 402 was received
+        requirementsSource ("body" or "header") when a 402 was received
         payerAddress
         signedNetwork, signedAsset, signedPayTo, signedValue,
         signedValidAfter, signedValidBefore, signedNonce
@@ -205,7 +206,25 @@ def attempt_payment(
         result["requirements"] = None
         return result
 
-    requirements = parse_payment_requirements(initial.text)
+    result["requirementsSource"] = "body"
+    try:
+        requirements = parse_payment_requirements(initial.text)
+    except ValueError:
+        # v2 servers may carry the PaymentRequired object in the
+        # PAYMENT-REQUIRED response header (base64 JSON) with an empty
+        # body, exactly as https://x402.org/protected serves it live.
+        # Fall back to the header before giving up.
+        headers_lower = _headers_lower(initial.headers)
+        header_value = None
+        for name in ("payment-required", "x-payment-required"):
+            if name in headers_lower:
+                header_value = headers_lower[name]
+                break
+        decoded = decode_settlement_header(header_value) if header_value else None
+        if not isinstance(decoded, dict):
+            raise
+        requirements = parse_payment_requirements(json.dumps(decoded))
+        result["requirementsSource"] = "header"
     result["requirements"] = requirements
 
     payer_address = payer_address_from_key(payer_private_key)
