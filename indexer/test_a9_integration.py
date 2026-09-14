@@ -441,12 +441,118 @@ def run_scenario_4():
     return passed
 
 
+def run_scenario_5():
+    """A failed declaration audit must never block the primary evidence:
+    the x402 verdict is already on-chain when the declaration step runs."""
+    temp_path = _make_temp_store()
+    os.environ["X402_DISABLE_SQLITE"] = "1"
+    tx_local = "0x" + "77" * 32
+
+    def fake_attempt_payment(resource_url, key, method="GET", body=None):
+        return {
+            "initialStatus": 402,
+            "requirements": REQUIREMENTS,
+            "retryStatus": 200,
+            "payerAddress": PAYER,
+            "signedValidBefore": "1788264699",
+            "settlementClaim": {
+                "success": True,
+                "transaction": tx_local,
+                "network": "eip155:84532",
+                "payer": PAYER,
+            },
+        }
+
+    def fake_find_settlement_transfer(**kwargs):
+        return (None, [])
+
+    def fake_verify_transaction(**kwargs):
+        return {
+            "verificationStatus": "VERIFIED",
+            "anchorBlock": BLOCK_HEX,
+            "transactionHash": tx_local,
+            "chainId": "0x14a34",
+            "reason": None,
+        }
+
+    def fake_get_provider(provider_id):
+        return PROVIDER
+
+    def fake_get_client():
+        return FakeClient([])
+
+    def fake_store_evidence(summary, path=None):
+        return evidence_store.store_evidence(summary, path=temp_path)
+
+    def raising_declaration_audit(**kwargs):
+        raise RuntimeError("gen_call failed (code=-32000): execution failed")
+
+    originals = (
+        collector.attempt_payment,
+        collector.find_settlement_transfer,
+        collector.verify_transaction,
+        collector.get_provider,
+        collector.get_client,
+        collector.store_evidence,
+        collector.submit_declaration_audit,
+    )
+    collector.attempt_payment = fake_attempt_payment
+    collector.find_settlement_transfer = fake_find_settlement_transfer
+    collector.verify_transaction = fake_verify_transaction
+    collector.get_provider = fake_get_provider
+    collector.get_client = fake_get_client
+    collector.store_evidence = fake_store_evidence
+    collector.submit_declaration_audit = raising_declaration_audit
+    try:
+        summary = collector.collect_and_audit(
+            provider_id="test-provider",
+            resource_url="http://127.0.0.1:9999/resource",
+            rpc_url="https://sepolia.base.org",
+            payer_private_key="0x" + "11" * 32,
+        )
+    finally:
+        (
+            collector.attempt_payment,
+            collector.find_settlement_transfer,
+            collector.verify_transaction,
+            collector.get_provider,
+            collector.get_client,
+            collector.store_evidence,
+            collector.submit_declaration_audit,
+        ) = originals
+        os.environ.pop("X402_DISABLE_SQLITE", None)
+
+    print("=== Scenario 5: declaration failure does not block storage ===")
+    print(json.dumps(
+        {k: summary.get(k) for k in ("outcome", "auditVerdict", "declarationError")},
+        indent=2, ensure_ascii=False,
+    ))
+
+    passed = True
+    if summary.get("outcome") != "AUDITED":
+        print("FAIL: expected outcome AUDITED, got " + str(summary.get("outcome")))
+        passed = False
+    if "declarationError" not in summary:
+        print("FAIL: declarationError not recorded in the summary")
+        passed = False
+    stored = evidence_store.find_evidence("0x14a34", tx_local, path=temp_path)
+    if len(stored) != 1:
+        print("FAIL: expected the evidence to be stored, got " + str(len(stored)))
+        passed = False
+
+    print("PASSED" if passed else "FAILED")
+    print("")
+    os.remove(temp_path)
+    return passed
+
+
 def main():
     results = [
         run_scenario_1(),
         run_scenario_2(),
         run_scenario_3(),
         run_scenario_4(),
+        run_scenario_5(),
     ]
     total = len(results)
     passed_count = sum(1 for r in results if r)

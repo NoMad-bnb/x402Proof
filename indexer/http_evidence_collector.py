@@ -327,16 +327,23 @@ def collect_and_audit(
 
     declaration_url = provider.get("known_declaration_url")
     if declaration_url and claim_transaction:
-        declaration_record = submit_declaration_audit(
-            facilitator_label=provider["label"],
-            declaration_url=declaration_url,
-            rpc_url=rpc_url,
-            transaction_hash=claim_transaction,
-        )
-        summary["declarationVerdict"] = declaration_record.get("verdict")
-        summary["declarationRecord"] = declaration_record
-        if declaration_record.get("gen_layer_tx_hash"):
-            summary["genLayerTxHash"] = declaration_record["gen_layer_tx_hash"]
+        try:
+            declaration_record = submit_declaration_audit(
+                facilitator_label=provider["label"],
+                declaration_url=declaration_url,
+                rpc_url=rpc_url,
+                transaction_hash=claim_transaction,
+            )
+            summary["declarationVerdict"] = declaration_record.get("verdict")
+            summary["declarationRecord"] = declaration_record
+            if declaration_record.get("gen_layer_tx_hash"):
+                summary["genLayerTxHash"] = declaration_record["gen_layer_tx_hash"]
+        except Exception as exc:
+            # The declaration audit is a secondary attestation: the primary
+            # x402 verdict is already written on-chain at this point, so a
+            # failed declaration call must never destroy the stored evidence.
+            # The failure stays visible in the summary instead.
+            summary["declarationError"] = str(exc)
 
     # A9 (evidence_store.py): persist the full summary under its natural
     # key, unless the same semantic evidence already exists. Keyless runs
