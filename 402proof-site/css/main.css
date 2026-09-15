@@ -406,18 +406,6 @@ h3 { font-size: var(--text-xl); font-family: var(--font-sans); font-weight: 500;
   margin-top: var(--space-8);
 }
 
-.registry-card {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-4);
-  align-items: start;
-  padding: var(--space-4) var(--space-5);
-  background: var(--elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-border);
-}
-
 .chip-conflict {
   background: var(--color-contradicted-fg);
   border-color: color-mix(in srgb, var(--color-contradicted) 30%, transparent);

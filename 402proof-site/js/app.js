@@ -511,6 +511,10 @@
   }
 
   // -- On-chain registry (observed relayers) --
+  let onchainCache = [];
+  let onchainPage = 1;
+  let onchainPageSize = 6;
+
   function renderOnchainRegistry(payload) {
     const banner = document.getElementById("onchain-banner");
     const summaryEl = document.getElementById("onchain-summary");
@@ -521,11 +525,15 @@
     const byRelayer = Array.isArray(data.byRelayer) ? data.byRelayer : [];
     const summary = data.summary || {};
 
+    onchainCache = byRelayer;
+
     if (data.status !== "ok") {
+      onchainPage = 1;
       setBanner(banner, "offline", "No on-chain snapshot yet");
       summaryEl.innerHTML = "";
       container.innerHTML =
         `<div class="state-msg">The indexer has not pushed a registry snapshot yet.</div>`;
+      buildOnchainPager(0);
       return;
     }
 
@@ -551,29 +559,168 @@
     summaryEl.innerHTML = conflictChips.join("") ||
       `<span class="chip">no conflicts flagged</span>`;
 
-    const cards = byRelayer.map((entry) => {
-      const labels = Array.isArray(entry.labels) ? entry.labels : [];
-      const conflict = entry.relayerLabelConflict === true;
-      const address = entry.relayer || "unknown";
-      const honesty = entry.announcementHonestyPct;
-      return `
-        <div class="registry-card">
-          <div>
-            <p class="fac-name mono">${escapeHtml(truncate(address, 14, 10))}</p>
-            <div class="fac-meta">
-              <span class="chip">labels: ${labels.length ? escapeHtml(labels.join(", ")) : "none"}</span>
-              <span class="chip">audits: ${Number(entry.totalRecords ?? 0)}</span>
-              <span class="chip">settled: ${Number(entry.settledOnChain ?? 0)}</span>
-              <span class="chip">honesty: ${honesty == null ? "n/a" : escapeHtml(String(honesty)) + "%"}</span>
-            </div>
-          </div>
-          <div class="fac-side">
-            ${conflict ? `<span class="chip chip-conflict">label conflict</span>` : ""}
-          </div>
-        </div>`;
+    renderOnchainList();
+  }
+
+  function renderOnchainList() {
+    const container = document.getElementById("onchain-registry-list");
+    if (!container) return;
+    const totalPages = Math.max(1, Math.ceil(onchainCache.length / onchainPageSize));
+    if (onchainPage > totalPages) onchainPage = totalPages;
+    const start = (onchainPage - 1) * onchainPageSize;
+    const pageItems = onchainCache.slice(start, start + onchainPageSize);
+    container.innerHTML = "";
+    pageItems.forEach((entry) => {
+      container.appendChild(buildRelayerRow(entry));
     });
-    container.innerHTML = cards.join("") ||
-      `<div class="state-msg">No relayer entries in the latest snapshot.</div>`;
+    buildOnchainPager(onchainCache.length);
+  }
+
+  function buildRelayerRow(entry) {
+    const address = entry.relayer || "unknown";
+    const labels = Array.isArray(entry.labels) ? entry.labels : [];
+    const conflict = entry.relayerLabelConflict === true;
+    const honesty = entry.announcementHonestyPct;
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "evidence-row";
+    row.setAttribute("aria-label", "Relayer " + truncate(address));
+    row.innerHTML = `
+      <div class="ev-top">
+        <div>
+          <div class="ev-hash">${escapeHtml(truncate(address, 14, 10))}</div>
+          <div class="ev-meta">
+            <span class="chip">labels: ${labels.length ? escapeHtml(labels.join(", ")) : "none"}</span>
+            <span class="chip">audits: ${Number(entry.totalRecords ?? 0)}</span>
+            <span class="chip">settled: ${Number(entry.settledOnChain ?? 0)}</span>
+            <span class="chip">honesty: ${honesty == null ? "n/a" : escapeHtml(String(honesty)) + "%"}</span>
+          </div>
+        </div>
+        <span class="chip ${conflict ? "chip-conflict" : ""}">${conflict ? "label conflict" : "no conflicts"}</span>
+      </div>
+    `;
+    row.addEventListener("click", () => openRelayerDrawer(entry));
+    return row;
+  }
+
+  function openRelayerDrawer(entry) {
+    const address = entry.relayer || "unknown";
+    const labels = Array.isArray(entry.labels) ? entry.labels : [];
+    const rows = [
+      ["Relayer address", address],
+      ["Labels", labels.length ? labels.join(", ") : "none"],
+      ["Total records", entry.totalRecords ?? 0],
+      ["Settled on chain", entry.settledOnChain ?? 0],
+      ["Settled atomic total", entry.settledAtomicTotal ?? 0],
+      ["Confirmed", entry.confirmed ?? 0],
+      ["Contradicted failure", entry.contradictedFailure ?? 0],
+      ["Settled no claim", entry.settledNoClaim ?? 0],
+      ["Settled no announcement captured", entry.settledNoAnnouncementCaptured ?? 0],
+      ["Legacy unclassified silence", entry.legacyUnclassifiedSilence ?? 0],
+      ["Pending", entry.pending ?? 0],
+      ["Rejected", entry.rejected ?? 0],
+      ["Undetermined", entry.undetermined ?? 0],
+      ["Unremarkable", entry.unremarkable ?? 0],
+      ["Duplicate audits", entry.duplicateAudits ?? 0],
+      ["Ambiguous", entry.ambiguous ?? 0],
+      ["Evidence: self probe", entry.evidenceSelfProbe ?? 0],
+      ["Evidence: reported", entry.evidenceReported ?? 0],
+      ["Evidence: discovered only", entry.evidenceDiscoveredOnly ?? 0],
+      [
+        "Announcement honesty",
+        entry.announcementHonestyPct == null
+          ? "n/a (no denominator yet)"
+          : entry.announcementHonestyPct + "%",
+      ],
+    ];
+    const dl = rows.map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd>`).join("");
+    const relayerUrl = /^0x[0-9a-fA-F]{40}$/.test(address)
+      ? "https://explorer-studio.genlayer.com/address/" + address
+      : null;
+    const conflictHtml = entry.relayerLabelConflict === true
+      ? `<p class="action-hint">relayerLabelConflict: this settling address was named with more than one typed label. A naming inconsistency, published rather than hidden.</p>`
+      : "";
+    openDrawer("Relayer detail", `
+      <dl>${dl}</dl>
+      ${conflictHtml}
+      <section class="verification-actions">
+        <h3>Independent verification</h3>
+        <div class="action-buttons">
+          <a class="btn btn-primary" ${relayerUrl ? `href="${relayerUrl}" target="_blank" rel="noopener"` : "disabled"} title="${relayerUrl ? "View on GenLayer Explorer" : "Address is not a valid GenLayer address"}">
+            View on GenLayer Explorer ↗
+          </a>
+        </div>
+        <p class="action-hint">
+          Grouping by the observed settling address cannot be forged by whoever calls audit(). Recompute by calling <code>get_registry_by_relayer()</code> on the X402Auditor contract and compare to this drawer.
+        </p>
+      </section>
+    `);
+  }
+
+  function buildOnchainPager(totalItems) {
+    const listEl = document.getElementById("onchain-registry-list");
+    let pager = document.getElementById("onchain-pager");
+    if (!pager) {
+      pager = document.createElement("div");
+      pager.id = "onchain-pager";
+      pager.style.display = "flex";
+      pager.style.flexWrap = "wrap";
+      pager.style.gap = "8px";
+      pager.style.justifyContent = "center";
+      pager.style.alignItems = "center";
+      pager.style.marginTop = "var(--space-5)";
+      listEl.insertAdjacentElement("afterend", pager);
+    }
+
+    const totalPages = Math.max(1, Math.ceil(totalItems / onchainPageSize));
+    if (onchainPage > totalPages) onchainPage = totalPages;
+    if (onchainPage < 1) onchainPage = 1;
+    const isFirst = onchainPage <= 1;
+    const isLast = onchainPage >= totalPages;
+    const goTo = (page) => {
+      onchainPage = page;
+      renderOnchainList();
+      listEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
+    pager.innerHTML = "";
+    pager.appendChild(buildPagerButton("First", "Go to first page", () => goTo(1), isFirst, false));
+    pager.appendChild(buildPagerButton("←", "Previous page", () => goTo(onchainPage - 1), isFirst, false));
+    const pageInfo = document.createElement("span");
+    pageInfo.textContent = "Page " + onchainPage + " of " + totalPages;
+    pageInfo.className = "chip";
+    pageInfo.style.padding = "6px 12px";
+    pageInfo.setAttribute("aria-label", "Current page " + onchainPage + " of " + totalPages);
+    pager.appendChild(pageInfo);
+    pager.appendChild(buildPagerButton("→", "Next page", () => goTo(onchainPage + 1), isLast, false));
+    pager.appendChild(buildPagerButton("Last", "Go to last page", () => goTo(totalPages), isLast, false));
+
+    const select = document.createElement("select");
+    select.id = "onchain-rows-per-page";
+    select.setAttribute("aria-label", "Rows per page");
+    select.style.padding = "6px 10px";
+    select.style.borderRadius = "var(--radius-sm, 6px)";
+    select.style.border = "1px solid var(--border, rgba(0,0,0,0.1))";
+    select.style.background = "var(--bg, transparent)";
+    select.style.color = "inherit";
+    select.style.font = "inherit";
+    ROWS_PER_PAGE_OPTIONS.forEach(function (n) {
+      const opt = document.createElement("option");
+      opt.value = String(n);
+      opt.textContent = n + " / page";
+      if (n === onchainPageSize) opt.selected = true;
+      select.appendChild(opt);
+    });
+    select.addEventListener("change", function () {
+      const next = parseInt(select.value, 10);
+      if (ROWS_PER_PAGE_OPTIONS.indexOf(next) === -1) return;
+      onchainPageSize = next;
+      onchainPage = 1;
+      renderOnchainList();
+    });
+    pager.appendChild(select);
+
+    pager.hidden = totalItems === 0;
   }
 
   // —— Mobile nav ——
