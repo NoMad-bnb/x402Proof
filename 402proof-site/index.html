@@ -135,9 +135,11 @@
 
         <h3 class="onchain-title">On-chain registry (observed relayers)</h3>
         <p class="lede">
-          The same audits, grouped on chain by the address that actually settled.
-          That grouping cannot be forged by whoever calls the audit. Where a typed
-          name and an observed relayer disagree, both sides are published as a conflict flag.
+          Every audit written to the contract, grouped on chain by the address that actually
+          settled. That grouping cannot be forged by whoever calls the audit. Counts here can
+          exceed the evidence records listed above, because the contract keeps every audit ever
+          written while the API serves the records pushed to it. Where a typed name and an
+          observed relayer disagree, both sides are published as a conflict flag.
         </p>
 
         <div class="data-banner" id="onchain-banner" data-source="mock" role="status">

@@ -130,16 +130,17 @@
       const records = familyTotal(byVerdict, v);
       const transactions = hasTxCounts ? familyTotal(byVerdictTx, v) : records;
       if (!records && !transactions) return "";
-      const noun = transactions === 1 ? "settlement transaction" : "settlement transactions";
+      const scope = transactions === 1 ? "settlement transaction" : "settlement transactions";
+      const claim = v === "CONFIRMED" ? "a confirmed claim" : `a ${v} claim`;
       const title =
-        transactions === records
-          ? `${transactions} ${noun}`
-          : `${transactions} ${noun}, ${records} evidence records`;
+        records === transactions
+          ? `${transactions} ${scope} with ${claim}`
+          : `${transactions} ${scope} with ${claim}, over ${records} evidence records`;
       return `<span class="stat-chip" title="${escapeHtml(title)}"><span class="verdict ${verdictClass(v)}">${escapeHtml(v)}</span> <strong>${transactions}</strong> <span class="stat-chip-sub">tx</span></span>`;
     }).filter(Boolean).join("");
 
     const verdictNote = totalTransactions
-      ? `Counted once per settlement transaction, across ${totalEvidence} evidence records. One transaction lands in more than one family when more than one claim was audited for it.`
+      ? `Counted once per settlement transaction, over ${totalEvidence} evidence records. A transaction that carries more than one audited claim is counted in more than one family.`
       : "";
 
     const sourceChips = Object.entries(bySource)

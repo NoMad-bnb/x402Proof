@@ -116,6 +116,8 @@ The on-chain registry section reads the contract's `get_registry()` and `get_reg
 
 Conflicts are published, not hidden. They are naming observations, not verdicts.
 
+The on-chain counts and the evidence record total are counted over different sets: the contract keeps every audit ever written, including records that are not pushed to the API, so its totals can be larger. Both numbers are always shown side by side rather than reconciled into one figure.
+
 Relayer rows are clickable. Each row opens a drawer with the full counter set and the typed labels, and the address opens on BaseScan (Sepolia), because the observed relayer is the Base Sepolia address that broadcast the settlement. `NO_RELAYER_OBSERVED` is a contract-level bucket for records where no settling relayer was observed, so it is shown as a bucket with no explorer link.
 
 The dashboard refreshes automatically every 30 seconds. The indexer runs on a 10-minute cycle, so evidence records appear on the dashboard shortly after each successful cycle.
