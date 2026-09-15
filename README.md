@@ -9,6 +9,11 @@
 
 ---
 
+**Created and maintained by [NoMad-bnb](https://github.com/NoMad-bnb).**  
+Open to feedback, collaboration, and serious discussions: **x402proof@gmail.com**
+
+---
+
 ## What is x402Proof
 
 x402Proof is an **independent audit and reputation layer** for x402 facilitators, built on **GenLayer**.
