@@ -497,6 +497,72 @@
     applyEvidenceFilter();
   }
 
+  // -- On-chain registry (observed relayers) --
+  function renderOnchainRegistry(payload) {
+    const banner = document.getElementById("onchain-banner");
+    const summaryEl = document.getElementById("onchain-summary");
+    const container = document.getElementById("onchain-registry-list");
+    if (!banner || !summaryEl || !container) return;
+
+    const data = payload || {};
+    const byRelayer = Array.isArray(data.byRelayer) ? data.byRelayer : [];
+    const summary = data.summary || {};
+
+    if (data.status !== "ok") {
+      setBanner(banner, "offline", "No on-chain snapshot yet");
+      summaryEl.innerHTML = "";
+      container.innerHTML =
+        `<div class="state-msg">The indexer has not pushed a registry snapshot yet.</div>`;
+      return;
+    }
+
+    const readAt = data.readAt ? String(data.readAt).slice(0, 19) : "";
+    setBanner(banner, "api", `On-chain registry · read ${readAt} · ${byRelayer.length} relayer(s)`);
+
+    const labelConflicts = summary.labelRelayerConflict || { count: 0, labels: [] };
+    const relayerConflicts = summary.relayerLabelConflict || { count: 0, relayers: [] };
+
+    const conflictChips = [];
+    if (relayerConflicts.count) {
+      const names = relayerConflicts.relayers.map((r) => escapeHtml(truncate(String(r), 12, 8))).join(", ");
+      conflictChips.push(
+        `<span class="chip chip-conflict">relayerLabelConflict <strong>${relayerConflicts.count}</strong> · ${names}</span>`
+      );
+    }
+    if (labelConflicts.count) {
+      const names = labelConflicts.labels.map((l) => escapeHtml(String(l))).join(", ");
+      conflictChips.push(
+        `<span class="chip chip-conflict">labelRelayerConflict <strong>${labelConflicts.count}</strong> · ${names}</span>`
+      );
+    }
+    summaryEl.innerHTML = conflictChips.join("") ||
+      `<span class="chip">no conflicts flagged</span>`;
+
+    const cards = byRelayer.map((entry) => {
+      const labels = Array.isArray(entry.labels) ? entry.labels : [];
+      const conflict = entry.relayerLabelConflict === true;
+      const address = entry.relayer || "unknown";
+      const honesty = entry.announcementHonestyPct;
+      return `
+        <div class="registry-card">
+          <div>
+            <p class="fac-name mono">${escapeHtml(truncate(address, 14, 10))}</p>
+            <div class="fac-meta">
+              <span class="chip">labels: ${labels.length ? escapeHtml(labels.join(", ")) : "none"}</span>
+              <span class="chip">audits: ${Number(entry.totalRecords ?? 0)}</span>
+              <span class="chip">settled: ${Number(entry.settledOnChain ?? 0)}</span>
+              <span class="chip">honesty: ${honesty == null ? "n/a" : escapeHtml(String(honesty)) + "%"}</span>
+            </div>
+          </div>
+          <div class="fac-side">
+            ${conflict ? `<span class="chip chip-conflict">label conflict</span>` : ""}
+          </div>
+        </div>`;
+    });
+    container.innerHTML = cards.join("") ||
+      `<div class="state-msg">No relayer entries in the latest snapshot.</div>`;
+  }
+
   // —— Mobile nav ——
   const menuBtn = document.getElementById("menu-btn");
   const nav = document.getElementById("site-nav");
@@ -550,10 +616,11 @@
 
   async function boot() {
     try {
-      const [fac, ev, stats] = await Promise.all([
+      const [fac, ev, stats, onchain] = await Promise.all([
         window.ProofAPI.getFacilitators(),
         window.ProofAPI.getEvidence(),
         window.ProofAPI.getStats(),
+        window.ProofAPI.getOnchainRegistry(),
       ]);
       if (stats && stats.data && stats.data.last_update_time) {
         lastUpdateTime = stats.data.last_update_time;
@@ -561,6 +628,7 @@
       renderStats(stats.data);
       renderFacilitators(fac.data);
       renderEvidence(ev.data);
+      renderOnchainRegistry(onchain.data);
     } catch (err) {
       console.error(err);
       document.getElementById("registry-list").innerHTML =
@@ -573,6 +641,7 @@
       }
       setBanner(document.getElementById("registry-banner"), "offline", "Offline · API unreachable");
       setBanner(document.getElementById("evidence-banner"), "offline", "Offline · API unreachable");
+      setBanner(document.getElementById("onchain-banner"), "offline", "Offline · API unreachable");
     }
   }
 

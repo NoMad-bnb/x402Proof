@@ -296,6 +296,105 @@ def run_scenario_6():
     return passed
 
 
+def run_scenario_7():
+    """/registry/onchain with no snapshot stored yet."""
+    passed = True
+    print("=== Scenario 7: /registry/onchain on empty cache ===")
+    response = CLIENT.get("/registry/onchain")
+    body = response.json()
+    print(json.dumps(body, indent=2))
+    if response.status_code != 200:
+        print("FAIL: expected 200, got " + str(response.status_code))
+        passed = False
+    if body.get("status") != "no_snapshot":
+        print("FAIL: expected status no_snapshot, got " + str(body.get("status")))
+        passed = False
+    if body.get("byLabel") != [] or body.get("byRelayer") != []:
+        print("FAIL: expected empty groupings, got " + json.dumps(body))
+        passed = False
+    if body.get("summary", {}).get("labelRelayerConflict", {}).get("count") != 0:
+        print("FAIL: expected zero label conflicts, got " + json.dumps(body.get("summary")))
+        passed = False
+    print("PASSED" if passed else "FAILED")
+    print("")
+    return passed
+
+
+def run_scenario_8():
+    """Registry ingest -> read round trip, conflict flags, bad payload rejected."""
+    passed = True
+    print("=== Scenario 8: registry ingest and reads ===")
+    by_label = [
+        {
+            "facilitator": "alpha",
+            "relayers": ["0x" + "aa" * 20],
+            "totalRecords": 3,
+            "confirmed": 2,
+            "contradictedFailure": 1,
+            "announcementHonestyPct": 66,
+            "labelRelayerConflict": False,
+        },
+        {
+            "facilitator": "beta",
+            "relayers": ["0x" + "aa" * 20, "0x" + "bb" * 20],
+            "totalRecords": 2,
+            "confirmed": 1,
+            "labelRelayerConflict": True,
+        },
+    ]
+    by_relayer = [
+        {
+            "relayer": "0x" + "aa" * 20,
+            "labels": ["alpha", "beta"],
+            "totalRecords": 5,
+            "relayerLabelConflict": True,
+        },
+    ]
+    read_at = "2026-09-15T12:00:00+00:00"
+    ingest = CLIENT.post(
+        "/ingest/registry",
+        json={"readAt": read_at, "byLabel": by_label, "byRelayer": by_relayer},
+    )
+    if ingest.status_code != 200 or ingest.json().get("ingested") != 2:
+        print("FAIL: ingest/registry -> " + str(ingest.status_code) + " " + ingest.text)
+        passed = False
+
+    listing = CLIENT.get("/registry/onchain")
+    body = listing.json()
+    print(json.dumps(body, indent=2))
+    if listing.status_code != 200 or body.get("status") != "ok":
+        print("FAIL: /registry/onchain -> " + str(listing.status_code) + " " + listing.text)
+        passed = False
+    if body.get("readAt") != read_at:
+        print("FAIL: readAt mismatch: " + str(body.get("readAt")))
+        passed = False
+    if len(body.get("byLabel", [])) != 2 or len(body.get("byRelayer", [])) != 1:
+        print("FAIL: grouping sizes wrong: " + json.dumps(body))
+        passed = False
+    summary = body.get("summary", {})
+    if summary.get("labelRelayerConflict", {}).get("count") != 1:
+        print("FAIL: expected one label conflict, got " + json.dumps(summary))
+        passed = False
+    if summary.get("labelRelayerConflict", {}).get("labels") != ["beta"]:
+        print("FAIL: label conflict list wrong: " + json.dumps(summary))
+        passed = False
+    if summary.get("relayerLabelConflict", {}).get("count") != 1:
+        print("FAIL: expected one relayer conflict, got " + json.dumps(summary))
+        passed = False
+
+    rejected = CLIENT.post(
+        "/ingest/registry",
+        json={"readAt": read_at, "byLabel": "not-a-list", "byRelayer": []},
+    )
+    if rejected.status_code != 400:
+        print("FAIL: non-list byLabel should be 400, got " + str(rejected.status_code))
+        passed = False
+
+    print("PASSED" if passed else "FAILED")
+    print("")
+    return passed
+
+
 def main():
     database.init_database()
     results = []
@@ -307,6 +406,8 @@ def main():
             run_scenario_4(),
             run_scenario_5(),
             run_scenario_6(),
+            run_scenario_7(),
+            run_scenario_8(),
         ]
     finally:
         database.DB_PATH = _ORIGINAL_DB_PATH

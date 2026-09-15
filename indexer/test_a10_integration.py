@@ -65,11 +65,17 @@ def _patch_scheduler():
     scheduler.collect_and_audit = fake_collect_and_audit
     scheduler.provider_health = fake_provider_health
     scheduler.time.sleep = fake_sleep
+    original_api_url = os.environ.get("X402_API_URL")
+    os.environ["X402_API_URL"] = ""
 
     def restore():
         scheduler.collect_and_audit = originals[0]
         scheduler.provider_health = originals[1]
         scheduler.time.sleep = originals[2]
+        if original_api_url is None:
+            os.environ.pop("X402_API_URL", None)
+        else:
+            os.environ["X402_API_URL"] = original_api_url
 
     return restore, call_log, fake_collect_and_audit, fake_provider_health
 

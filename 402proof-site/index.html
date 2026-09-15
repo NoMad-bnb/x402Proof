@@ -131,6 +131,21 @@
           <div class="skeleton-row" aria-hidden="true"></div>
           <div class="skeleton-row" aria-hidden="true"></div>
         </div>
+
+        <h3 class="onchain-title">On-chain registry (observed relayers)</h3>
+        <p class="lede">
+          The same audits, grouped on chain by the address that actually settled.
+          That grouping cannot be forged by whoever calls the audit. Where a typed
+          name and an observed relayer disagree, both sides are published as a conflict flag.
+        </p>
+
+        <div class="data-banner" id="onchain-banner" data-source="mock" role="status">
+          Loading on-chain registry…
+        </div>
+
+        <div class="stat-chips" id="onchain-summary"></div>
+
+        <div class="registry-list" id="onchain-registry-list" aria-live="polite"></div>
       </div>
     </section>
 

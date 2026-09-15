@@ -102,8 +102,16 @@ The indexer stores evidence in a local store and exposes it through a public API
 The public dashboard connects to the API and displays:
 
 - Facilitator registry with live status
+- On-chain registry grouped by observed settling relayer, with label/relayer conflict flags
 - Evidence records with full verification detail
 - Independent verification links (Base Sepolia, GenLayer Explorer, on-chain contract)
+
+The on-chain registry section reads the contract's `get_registry()` and `get_registry_by_relayer()` views on each indexer cycle. The relayer grouping is the authoritative display, because the settling address is observed on chain. Two conflict flags are surfaced as first-class signals:
+
+- `labelRelayerConflict` - one typed label settled through more than one relayer address
+- `relayerLabelConflict` - one relayer address settled under more than one typed label
+
+Conflicts are published, not hidden. They are naming observations, not verdicts.
 
 The dashboard refreshes automatically every 30 seconds. The indexer runs on a 10-minute cycle, so evidence records appear on the dashboard shortly after each successful cycle.
 

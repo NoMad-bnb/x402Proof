@@ -63,6 +63,14 @@ CREATE TABLE IF NOT EXISTS evidence (
 );
 """
 
+REGISTRY_CACHE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS registry_cache (
+    grouping TEXT PRIMARY KEY,
+    payload TEXT NOT NULL,
+    read_at TEXT
+);
+"""
+
 EVIDENCE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_evidence_chain ON evidence(chain_id);",
     "CREATE INDEX IF NOT EXISTS idx_evidence_provider ON evidence(provider_id);",
@@ -126,6 +134,7 @@ def init_database() -> None:
             cur = conn.cursor()
             cur.execute(PROVIDERS_SCHEMA)
             cur.execute(EVIDENCE_SCHEMA_POSTGRES)
+            cur.execute(REGISTRY_CACHE_SCHEMA)
             for index_sql in EVIDENCE_INDEXES:
                 try:
                     cur.execute(index_sql)
@@ -135,6 +144,7 @@ def init_database() -> None:
         else:
             conn.executescript(PROVIDERS_SCHEMA)
             conn.executescript(EVIDENCE_SCHEMA_SQLITE)
+            conn.executescript(REGISTRY_CACHE_SCHEMA)
             for index_sql in EVIDENCE_INDEXES:
                 conn.executescript(index_sql)
             conn.commit()
@@ -433,6 +443,51 @@ def _row_to_evidence(row) -> dict:
     return record
 
 
+# ── On-chain registry cache ────────────────────────────────────────────────
+
+def save_registry_cache(grouping: str, records: list, read_at: str | None) -> None:
+    """Store or replace one registry grouping (by_label or by_relayer)."""
+    conn = get_connection()
+    try:
+        _execute(
+            conn,
+            """
+            INSERT INTO registry_cache (grouping, payload, read_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(grouping) DO UPDATE SET
+                payload = excluded.payload,
+                read_at = excluded.read_at
+            """,
+            (grouping, json.dumps(records), read_at),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_registry_cache(grouping: str) -> dict | None:
+    """Return {'grouping', 'records', 'read_at'} for one grouping, or None."""
+    conn = get_connection()
+    try:
+        row = _execute(
+            conn, "SELECT grouping, payload, read_at FROM registry_cache WHERE grouping = ?",
+            (grouping,),
+        ).fetchone()
+        if row is None:
+            return None
+        try:
+            records = json.loads(row["payload"])
+        except (json.JSONDecodeError, TypeError, KeyError):
+            records = []
+        return {
+            "grouping": row["grouping"],
+            "records": records if isinstance(records, list) else [],
+            "read_at": row["read_at"],
+        }
+    finally:
+        conn.close()
+
+
 # ── Migration ──────────────────────────────────────────────────────────────
 
 def migrate_from_json() -> tuple[int, int]:
@@ -551,6 +606,36 @@ def _run_self_test() -> None:
         "get_stats returns aggregated data",
         stats["providers"]["total"] >= 1 and stats["evidence"]["total"] >= 1,
     ))
+
+    save_registry_cache(
+        "by_label",
+        [{"facilitator": "alpha", "labelRelayerConflict": False}],
+        "2026-09-15T00:00:00+00:00",
+    )
+    save_registry_cache(
+        "by_relayer",
+        [{"relayer": "0xaaa", "relayerLabelConflict": True}],
+        "2026-09-15T00:00:00+00:00",
+    )
+    cached = get_registry_cache("by_label")
+    cached_relayer = get_registry_cache("by_relayer")
+    checks.append((
+        "registry cache saves and reads both groupings",
+        cached is not None
+        and cached["records"][0]["facilitator"] == "alpha"
+        and cached["read_at"] == "2026-09-15T00:00:00+00:00"
+        and cached_relayer is not None
+        and cached_relayer["records"][0]["relayerLabelConflict"] is True,
+    ))
+    save_registry_cache("by_label", [{"facilitator": "beta"}], "later")
+    cached_overwrite = get_registry_cache("by_label")
+    checks.append((
+        "registry cache upsert replaces the payload and read_at",
+        cached_overwrite["records"][0]["facilitator"] == "beta"
+        and cached_overwrite["read_at"] == "later",
+    ))
+    checks.append(("registry cache miss returns None", get_registry_cache("missing") is None))
+
 
     if DB_PATH.exists():
         DB_PATH.unlink()

@@ -46,7 +46,7 @@ jobs:
           ]
           JSON
 
-      - name: Module self-tests (12)
+      - name: Module self-tests (13)
         run: |
           python scheduler.py --self-test
           python health.py
@@ -59,6 +59,7 @@ jobs:
           python rpc_verification_adapter.py
           python batch_evidence_capture.py
           python database.py
+          python registry_reader.py
           python consensus_observer.py self-test
 
       - name: Integration and contract tests (8 files)

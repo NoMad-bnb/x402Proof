@@ -12,6 +12,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
+from registry_reader import summarize as summarize_registry
+
 app = FastAPI(
     title="x402 Trust Layer API",
     description="Read-only API for x402 provider registry and audit evidence",
@@ -230,6 +232,50 @@ def get_evidence(chain_id: str, transaction_hash: str):
     if not results:
         raise HTTPException(status_code=404, detail="no evidence found for this transaction")
     return results
+
+
+@app.get("/registry/onchain")
+def get_onchain_registry():
+    """Serve the latest on-chain registry snapshot from the local cache."""
+    if db is None:
+        raise HTTPException(status_code=503, detail="database not available")
+    try:
+        by_label = db.get_registry_cache("by_label")
+        by_relayer = db.get_registry_cache("by_relayer")
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="registry cache read failed: " + str(exc))
+    label_records = by_label["records"] if by_label else []
+    relayer_records = by_relayer["records"] if by_relayer else []
+    read_at = None
+    for candidate in (by_label, by_relayer):
+        if candidate and candidate.get("read_at"):
+            if read_at is None or str(candidate["read_at"]) > str(read_at):
+                read_at = candidate["read_at"]
+    return {
+        "status": "ok" if read_at else "no_snapshot",
+        "readAt": read_at,
+        "byLabel": label_records,
+        "byRelayer": relayer_records,
+        "summary": summarize_registry(label_records, relayer_records),
+    }
+
+
+@app.post("/ingest/registry")
+def ingest_registry(payload: dict):
+    """Accept an on-chain registry snapshot from the local indexer."""
+    if db is None:
+        raise HTTPException(status_code=503, detail="database not available")
+    by_label = payload.get("byLabel", [])
+    by_relayer = payload.get("byRelayer", [])
+    if not isinstance(by_label, list) or not isinstance(by_relayer, list):
+        raise HTTPException(status_code=400, detail="byLabel and byRelayer must be lists")
+    read_at = payload.get("readAt")
+    try:
+        db.save_registry_cache("by_label", by_label, read_at)
+        db.save_registry_cache("by_relayer", by_relayer, read_at)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="registry cache write failed: " + str(exc))
+    return {"ingested": 2}
 
 
 @app.post("/ingest/providers")

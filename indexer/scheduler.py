@@ -227,7 +227,21 @@ def run_cycle() -> list:
                 "failureType": classify_failure(exc),
             }
         results.append(result)
+    _maybe_refresh_registry()
     return results
+
+
+def _maybe_refresh_registry() -> None:
+    """Refresh the on-chain registry snapshot when push is on or forced."""
+    api_url = os.environ.get("X402_API_URL", "")
+    forced = os.environ.get("X402_REGISTRY_REFRESH", "").strip().lower() in ("1", "true", "yes")
+    if not api_url and not forced:
+        return
+    try:
+        from registry_reader import refresh_snapshot
+        refresh_snapshot()
+    except Exception as exc:
+        print("WARNING: registry refresh failed: " + str(exc))
 
 
 def run_scheduler(
@@ -341,12 +355,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A10 Scheduler")
     parser.add_argument("--self-test", action="store_true", help="Run self-test and exit")
     parser.add_argument("--once", action="store_true", help="Run one cycle and exit")
+    parser.add_argument("--refresh-registry", action="store_true", help="Refresh the on-chain registry snapshot and exit")
     parser.add_argument("--interval", type=int, default=CYCLE_INTERVAL_SECONDS, help="Seconds between cycles")
     parser.add_argument("--max-cycles", type=int, default=0, help="Stop after N cycles (0 = infinite)")
     args = parser.parse_args()
 
     if args.self_test:
         _run_self_test()
+    elif args.refresh_registry:
+        from registry_reader import refresh_snapshot
+        snapshot = refresh_snapshot()
+        if snapshot is None:
+            raise SystemExit(1)
     elif args.once:
         results = one_shot()
         for result in results:

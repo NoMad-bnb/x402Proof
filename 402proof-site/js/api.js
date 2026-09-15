@@ -8,6 +8,7 @@
  *   GET /facilitators/{id}
  *   GET /evidence
  *   GET /evidence/{chain}/{tx}
+ *   GET /registry/onchain
  *   GET /stats
  */
 
@@ -63,10 +64,20 @@
     return { source: "api", data };
   }
 
+  async function getOnchainRegistry() {
+    const base = (cfg().API_BASE || "").replace(/\/$/, "");
+    if (!base) {
+      throw new Error("API_BASE is not configured");
+    }
+    const data = await fetchJson(`${base}/registry/onchain`);
+    return { source: "api", data };
+  }
+
   global.ProofAPI = {
     getFacilitators,
     getEvidence,
     getHealth,
     getStats,
+    getOnchainRegistry,
   };
 })(window);
