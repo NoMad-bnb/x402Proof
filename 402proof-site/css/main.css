@@ -1161,6 +1161,14 @@ h3 { font-size: var(--text-xl); font-family: var(--font-sans); font-weight: 500;
   color: var(--text-primary);
 }
 
+.stat-chip-sub {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
 .stat-empty {
   font-size: var(--text-sm);
   color: var(--text-muted);

@@ -240,6 +240,19 @@ def run_scenario_5():
     if by_verdict.get("CONFIRMED") != 1 or by_verdict.get("CONTRADICTED") != 1:
         print("FAIL: verdict counts wrong: " + json.dumps(by_verdict))
         passed = False
+    by_verdict_tx = evidence.get("by_verdict_transactions", {})
+    if by_verdict_tx.get("CONFIRMED") != 1 or by_verdict_tx.get("CONTRADICTED") != 1:
+        print("FAIL: per-transaction verdict counts wrong: "
+              + json.dumps(by_verdict_tx))
+        passed = False
+    if evidence.get("total_transactions") != 2:
+        print("FAIL: total_transactions wrong: "
+              + json.dumps(evidence.get("total_transactions")))
+        passed = False
+    if evidence.get("by_store_status", {}).get("EVIDENCE_STORED") != 2:
+        print("FAIL: store status counts wrong: "
+              + json.dumps(evidence.get("by_store_status")))
+        passed = False
     if evidence.get("by_chain", {}).get(CHAIN) != 2:
         print("FAIL: chain counts wrong: "
               + json.dumps(evidence.get("by_chain")))

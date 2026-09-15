@@ -118,11 +118,29 @@ def _execute(conn, query, params=()):
     return conn.execute(query, params)
 
 
+def _first_value(row, key=None):
+    """Read one column from a row. PostgreSQL rows are mappings while SQLite
+    rows are sequences, so both shapes are accepted and None is returned when
+    neither one carries a value."""
+    if row is None:
+        return None
+    if key is not None:
+        try:
+            return row[key]
+        except (KeyError, IndexError, TypeError):
+            pass
+    try:
+        return row[0]
+    except (KeyError, IndexError, TypeError):
+        return None
+
+
 def _last_insert_id(conn, cursor) -> int:
     """Return the last inserted row ID for the active backend."""
     if _is_postgres():
-        cursor.execute("SELECT lastval()")
-        return cursor.fetchone()[0]
+        cursor.execute("SELECT lastval() AS last_value")
+        value = _first_value(cursor.fetchone(), "last_value")
+        return int(value) if value is not None else 0
     return cursor.lastrowid
 
 
@@ -340,7 +358,7 @@ def count_evidence(
     audit_verdict: str | None = None,
 ) -> int:
     """Count evidence records matching filters."""
-    query = "SELECT COUNT(*) FROM evidence WHERE 1=1"
+    query = "SELECT COUNT(*) as cnt FROM evidence WHERE 1=1"
     params = []
 
     if chain_id is not None:
@@ -356,7 +374,7 @@ def count_evidence(
     conn = get_connection()
     try:
         row = _execute(conn, query, params).fetchone()
-        return row[0] if row else 0
+        return _first_value(row, "cnt") or 0
     finally:
         conn.close()
 
@@ -385,19 +403,52 @@ def get_stats() -> dict:
         ).fetchall()
         chain_stats = {row["chain_id"]: row["cnt"] for row in chain_rows}
 
-        total_evidence = _execute(conn, "SELECT COUNT(*) FROM evidence").fetchone()[0]
-        total_providers = _execute(conn, "SELECT COUNT(*) FROM providers").fetchone()[0]
+        store_rows = _execute(
+            conn,
+            "SELECT evidence_store_status, COUNT(*) as cnt FROM evidence"
+            " GROUP BY evidence_store_status",
+        ).fetchall()
+        store_stats = {
+            (row["evidence_store_status"] or "UNKNOWN"): row["cnt"]
+            for row in store_rows
+        }
+
+        verdict_tx_rows = _execute(
+            conn,
+            "SELECT audit_verdict, COUNT(DISTINCT transaction_hash) as cnt"
+            " FROM evidence GROUP BY audit_verdict",
+        ).fetchall()
+        verdict_tx_stats = {
+            row["audit_verdict"]: row["cnt"] for row in verdict_tx_rows
+        }
+
+        total_evidence = _first_value(
+            _execute(conn, "SELECT COUNT(*) as cnt FROM evidence").fetchone(), "cnt"
+        ) or 0
+        total_providers = _first_value(
+            _execute(conn, "SELECT COUNT(*) as cnt FROM providers").fetchone(), "cnt"
+        ) or 0
+        total_transactions = _first_value(
+            _execute(
+                conn, "SELECT COUNT(DISTINCT transaction_hash) as cnt FROM evidence"
+            ).fetchone(),
+            "cnt",
+        ) or 0
 
         last_evidence_row = _execute(
-            conn, "SELECT stored_at FROM evidence ORDER BY stored_at DESC LIMIT 1"
+            conn,
+            "SELECT stored_at AS last_stamp FROM evidence"
+            " ORDER BY stored_at DESC LIMIT 1",
         ).fetchone()
         last_provider_row = _execute(
-            conn, "SELECT last_seen FROM providers ORDER BY last_seen DESC LIMIT 1"
+            conn,
+            "SELECT last_seen AS last_stamp FROM providers"
+            " ORDER BY last_seen DESC LIMIT 1",
         ).fetchone()
 
         last_update_time = None
         for candidate in (last_evidence_row, last_provider_row):
-            value = candidate[0] if candidate else None
+            value = _first_value(candidate, "last_stamp")
             if value is None:
                 continue
             if last_update_time is None or str(value) > str(last_update_time):
@@ -407,9 +458,12 @@ def get_stats() -> dict:
             "providers": {"total": total_providers, "by_status": provider_stats},
             "evidence": {
                 "total": total_evidence,
+                "total_transactions": total_transactions,
                 "by_verdict": verdict_stats,
+                "by_verdict_transactions": verdict_tx_stats,
                 "by_source": source_stats,
                 "by_chain": chain_stats,
+                "by_store_status": store_stats,
             },
             "last_update_time": last_update_time,
         }
@@ -527,6 +581,74 @@ def migrate_from_json() -> tuple[int, int]:
 
 # ── Self-test ──────────────────────────────────────────────────────────────
 
+class _DictRowCursor:
+    """Cursor proxy that returns dict rows, the shape psycopg2 hands back."""
+
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def execute(self, query, params=()):
+        self._cursor.execute(query, params)
+        return self
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        return None if row is None else dict(row)
+
+    def fetchall(self):
+        return [dict(row) for row in self._cursor.fetchall()]
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+
+class _DictRowConnection:
+    """Connection proxy whose cursors return dict rows."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, query, params=()):
+        return _DictRowCursor(self._conn.execute(query, params))
+
+    def cursor(self):
+        return _DictRowCursor(self._conn.cursor())
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
+def _stats_survives_dict_rows() -> bool:
+    """Replay the stats and count paths against dict-shaped rows, so the
+    PostgreSQL row shape is covered without a server."""
+    global get_connection
+    original = get_connection
+
+    def with_dict_rows():
+        return _DictRowConnection(original())
+
+    get_connection = with_dict_rows
+    try:
+        stats = get_stats()
+        evidence = stats["evidence"]
+        return (
+            stats["providers"]["total"] == 1
+            and evidence["total"] == 1
+            and evidence["total_transactions"] == 1
+            and evidence["by_verdict"].get("CONFIRMED") == 1
+            and evidence["by_verdict_transactions"].get("CONFIRMED") == 1
+            and evidence["by_chain"].get("0x14a34") == 1
+            and evidence["by_store_status"].get("EVIDENCE_STORED") == 1
+            and stats["last_update_time"] is not None
+            and count_evidence(chain_id="0x14a34") == 1
+        )
+    except Exception as exc:
+        print("dict-row replay raised: " + str(exc))
+        return False
+    finally:
+        get_connection = original
+
+
 def _run_self_test() -> None:
     """Offline checks for database layer."""
     if _is_postgres():
@@ -605,6 +727,16 @@ def _run_self_test() -> None:
     checks.append((
         "get_stats returns aggregated data",
         stats["providers"]["total"] >= 1 and stats["evidence"]["total"] >= 1,
+    ))
+    checks.append((
+        "get_stats reports transactions and store status",
+        stats["evidence"]["total_transactions"] == 1
+        and stats["evidence"]["by_verdict_transactions"] == {"CONFIRMED": 1}
+        and stats["evidence"]["by_store_status"] == {"EVIDENCE_STORED": 1},
+    ))
+    checks.append((
+        "get_stats reads dict-like rows (PostgreSQL shape)",
+        _stats_survives_dict_rows(),
     ))
 
     save_registry_cache(

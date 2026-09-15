@@ -103,8 +103,11 @@ The public dashboard connects to the API and displays:
 
 - Facilitator registry with live status
 - On-chain registry grouped by observed settling relayer, with label/relayer conflict flags
+- Verdict distribution counted once per settlement transaction, next to the evidence record total
 - Evidence records with full verification detail
 - Independent verification links (Base Sepolia, GenLayer Explorer, on-chain contract)
+
+Verdict counts are per settlement transaction, so a transaction audited by more than one claim is counted once per family instead of once per evidence record. The record total stays visible beside it, so the two numbers can always be reconciled: records outnumber transactions because a transaction can carry more than one audited claim.
 
 The on-chain registry section reads the contract's `get_registry()` and `get_registry_by_relayer()` views on each indexer cycle. The relayer grouping is the authoritative display, because the settling address is observed on chain. Two conflict flags are surfaced as first-class signals:
 

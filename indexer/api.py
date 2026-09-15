@@ -314,7 +314,9 @@ def ingest_evidence(payload: dict):
 def get_stats():
     if db is not None:
         try:
-            return db.get_stats()
+            payload = db.get_stats()
+            payload.setdefault("generated_at", datetime.now(timezone.utc).isoformat())
+            return payload
         except Exception:
             pass
     # Fallback to JSON
@@ -327,23 +329,40 @@ def get_stats():
         status_counts[status] = status_counts.get(status, 0) + 1
     
     verdict_counts = {}
+    verdict_tx = {}
     source_counts = {}
     chain_counts = {}
     store_status_counts = {}
+    transactions = set()
     
     for e in evidence:
         summary = e.get("summary", {})
-        verdict = summary.get("auditVerdict", "UNKNOWN")
+        verdict = summary.get("auditVerdict") or "UNKNOWN"
         verdict_counts[verdict] = verdict_counts.get(verdict, 0) + 1
+
+        key = e.get("evidenceKey") or e.get("evidence_key") or {}
+        if not isinstance(key, dict):
+            key = {}
+        tx = (
+            e.get("transaction_hash")
+            or key.get("transactionHash")
+            or key.get("transaction_hash")
+        )
+        if tx:
+            transactions.add(str(tx))
+            verdict_tx.setdefault(verdict, set()).add(str(tx))
         
         source = summary.get("evidenceSource", "UNKNOWN")
         source_counts[source] = source_counts.get(source, 0) + 1
         
-        key = e.get("evidenceKey", {})
-        chain = key.get("chainId", "UNKNOWN")
+        chain = key.get("chainId") or key.get("chain_id") or "UNKNOWN"
         chain_counts[chain] = chain_counts.get(chain, 0) + 1
         
-        store_status = e.get("evidenceStoreStatus", "UNKNOWN")
+        store_status = (
+            e.get("evidenceStoreStatus")
+            or e.get("evidence_store_status")
+            or "UNKNOWN"
+        )
         store_status_counts[store_status] = store_status_counts.get(store_status, 0) + 1
     
     last_update_time = None
@@ -363,7 +382,11 @@ def get_stats():
         },
         "evidence": {
             "total": len(evidence),
+            "total_transactions": len(transactions),
             "by_verdict": verdict_counts,
+            "by_verdict_transactions": {
+                name: len(hashes) for name, hashes in verdict_tx.items()
+            },
             "by_source": source_counts,
             "by_chain": chain_counts,
             "by_store_status": store_status_counts,

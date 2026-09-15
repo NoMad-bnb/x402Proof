@@ -107,21 +107,40 @@
     const providers = data.providers || {};
     const evidence = data.evidence || {};
     const byVerdict = evidence.by_verdict || {};
+    const byVerdictTx = evidence.by_verdict_transactions || {};
     const bySource = evidence.by_source || {};
 
     const totalProviders = providers.total ?? 0;
     const totalEvidence = evidence.total ?? 0;
+    const totalTransactions = evidence.total_transactions ?? 0;
+    const hasTxCounts = Object.keys(byVerdictTx).length > 0;
+
+    // Verdict keys carry long reasons after a prefix, so a family matches by prefix.
+    function familyTotal(counts, family) {
+      const exact = counts[family] ?? counts[family + "_"] ?? 0;
+      if (exact) return exact;
+      let matched = 0;
+      Object.keys(counts).forEach((k) => {
+        if (String(k).toUpperCase().startsWith(family)) matched += counts[k] || 0;
+      });
+      return matched;
+    }
 
     const verdictChips = VERDICT_ORDER.map((v) => {
-      let matched = byVerdict[v] ?? byVerdict[v + "_"] ?? 0;
-      if (!matched) {
-        Object.keys(byVerdict).forEach((k) => {
-          if (String(k).toUpperCase().startsWith(v)) matched += byVerdict[k] || 0;
-        });
-      }
-      if (!matched) return "";
-      return `<span class="stat-chip"><span class="verdict ${verdictClass(v)}">${escapeHtml(v)}</span> <strong>${matched}</strong></span>`;
+      const records = familyTotal(byVerdict, v);
+      const transactions = hasTxCounts ? familyTotal(byVerdictTx, v) : records;
+      if (!records && !transactions) return "";
+      const noun = transactions === 1 ? "settlement transaction" : "settlement transactions";
+      const title =
+        transactions === records
+          ? `${transactions} ${noun}`
+          : `${transactions} ${noun}, ${records} evidence records`;
+      return `<span class="stat-chip" title="${escapeHtml(title)}"><span class="verdict ${verdictClass(v)}">${escapeHtml(v)}</span> <strong>${transactions}</strong> <span class="stat-chip-sub">tx</span></span>`;
     }).filter(Boolean).join("");
+
+    const verdictNote = totalTransactions
+      ? `Counted once per settlement transaction, across ${totalEvidence} evidence records. One transaction lands in more than one family when more than one claim was audited for it.`
+      : "";
 
     const sourceChips = Object.entries(bySource)
       .map(
@@ -144,6 +163,7 @@
       <article class="stat-card stat-card-wide">
         <p class="stat-label">Verdict distribution</p>
         <div class="stat-chips">${verdictChips || `<span class="stat-empty">No verdicts yet</span>`}</div>
+        ${verdictNote ? `<p class="stat-sub">${verdictNote}</p>` : ""}
       </article>
       <article class="stat-card stat-card-wide">
         <p class="stat-label">Evidence source</p>
