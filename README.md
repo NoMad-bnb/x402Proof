@@ -1,8 +1,9 @@
 ﻿# x402Proof
 
 ![Live](https://img.shields.io/badge/status-live-green)
+[![CI](https://github.com/NoMad-bnb/x402Proof/actions/workflows/ci.yml/badge.svg)](https://github.com/NoMad-bnb/x402Proof/actions/workflows/ci.yml)
 ![GenLayer](https://img.shields.io/badge/chain-GenLayer%20Studio-blue)
-![Open Source](https://img.shields.io/badge/license-Proprietary-lightgrey)
+![License](https://img.shields.io/badge/license-Proprietary-lightgrey)
 
 **Independent audit and reputation layer for x402 facilitators.**
 
@@ -12,7 +13,7 @@
 
 x402Proof is an **independent audit and reputation layer** for x402 facilitators, built on **GenLayer**.
 
-It does not settle payments. It does not hold funds. It does not run wallets or gas management. It only **verifies** - using deterministic smart contracts and independent validators - whether a facilitator's settlement claim matches what actually happened on-chain.
+It does not settle payments for anyone. It does not hold funds or customer keys, and it does not manage gas or nonces on behalf of a facilitator or a seller. The only key the indexer holds is a testnet key it uses to sign its own probe payments on Base Sepolia. It only **verifies** - using deterministic smart contracts and independent validators - whether a facilitator's settlement claim matches what actually happened on-chain.
 
 The result is an immutable, reproducible evidence record that anyone can check without trusting the API, the dashboard, or the indexer.
 
@@ -37,6 +38,12 @@ The facilitator is, in practice, a trusted centralized party. There is no indepe
 3. Does its actual behavior match what it publicly declares about itself?
 
 Without independent verification, the seller must either trust the facilitator blindly or build custom monitoring per provider. Both approaches re-introduce the centralization problem that decentralized protocols are supposed to solve.
+
+### How this differs from the alternatives
+
+- **A provider status page** is the provider talking about itself. x402Proof reads the settlement off the chain instead.
+- **Per-platform monitoring** only sees the traffic that platform already routed, and it answers to the platform that asked. x402Proof publishes the same evidence for every facilitator, including ones the requester does not control.
+- **A hosted reputation API** answers with a number you have to trust. Here the interface is a cache: the verdict list on GenLayer is the source, and every count can be recomputed from it.
 
 ---
 
@@ -65,6 +72,16 @@ This is the decentralization in this project, and it is **measured, not assumed*
 ### What we will never do
 
 This project will never become a facilitator that executes settlement. **No payment transactions, no wallets, no gas management, no nonce handling, no fund custody.** The project is an audit, verification, and reputation layer. **Its independence is its value.** The moment it executes settlement, it loses that independence.
+
+---
+
+## Who This Is For
+
+**Sellers and merchants running x402 endpoints.** You accept payments through a facilitator, and the facilitator is also the party telling you the payment succeeded. Before you release goods or unlock a resource, read the verdict for that settlement from the public API. No account, no key, no integration.
+
+**Marketplaces and payment platforms.** Compare facilitators before routing traffic through them, and keep the evidence for disputes. The registry shows whether one typed name is settled by several addresses, and which names share one settling address.
+
+**Reviewers and researchers.** Every recorded verdict is recomputable from the contract. Nothing on the dashboard is an input: it is a cache over an append-only list that anyone can read.
 
 ---
 
@@ -136,14 +153,39 @@ Evidence store status reflects deduplication:
 
 ---
 
+## Results So Far
+
+The numbers below are read from the live deployment on 2026-09-15, and every one of them can be recomputed from the contracts.
+
+- **7 facilitators tracked**, each with a live health status.
+- **3 GenLayer contracts live**: the auditor, the declaration audit, and the supported probe.
+- **657 evidence records** served by the public API, covering **615 settlement transactions**. Every one of those transactions carries a confirmed claim, and 40 of them also carry a rejected claim family.
+- **755 audit records** in the contract store, across **11 typed labels** and **3 relayer groupings**.
+- **Two conflict flags are published**, both observed live: 3 relayer groupings carry more than one typed label (one of the three is the contract's no-relayer bucket, not an address), and 2 typed labels settled through more than one observed address (`PayAI facilitator` and `x402.org public facilitator`, 2 addresses each).
+
+---
+
 ## Live
 
 - **Dashboard:** https://x402-proof.vercel.app/
+- **Public API:** https://x402proof-api.onrender.com
 - **Contracts (GenLayer Studio):**
   - **X402Auditor:** https://explorer-studio.genlayer.com/address/0xc40f7bADb1E340C78E20CdEf8722114bBEb53e98
   - **SupportedProbe:** https://explorer-studio.genlayer.com/address/0xb878840aE798078D8ED3CE371f6dC33eD98e0B8F
   - **DeclarationAudit:** https://explorer-studio.genlayer.com/address/0xeC9B3Bb176B22a31F659AB4581a9F22D3522737A
+- **Contract source in this repository:**
+  - `x402Proof/x402_auditor_v8.py` (X402Auditor)
+  - `x402Proof/supported_probe.py` (SupportedProbe)
+  - `x402Proof/declaration_audit.py` (DeclarationAudit)
 - **Chain data source:** Base Sepolia via RPC
+
+Three reads hold everything above together, and each one is callable from a browser or from your own server:
+
+```bash
+curl https://x402proof-api.onrender.com/health
+curl "https://x402proof-api.onrender.com/evidence?verdict=CONFIRMED&limit=5"
+curl https://x402proof-api.onrender.com/registry/onchain
+```
 
 ---
 
@@ -161,10 +203,24 @@ Each drawer also carries a **What was checked** matrix listing the components th
 
 If a button is disabled, the required transaction hash was not captured for that record.
 
+### One Record, End to End
+
+A real record, so the whole pipeline can be checked without running anything.
+
+| Step | Value |
+|---|---|
+| Resource paid | `https://x402.org/protected`, through the `x402.org public facilitator` (scope `real_facilitator_audit`) |
+| Payment flow | first request `402`, retry after payment `200` |
+| Settlement on Base Sepolia | [`0xb0822c14...69f5be`](https://sepolia.basescan.org/tx/0xb0822c148f67b2e95bf4b0ac7f2c0d02aacf52febb37fb2ab95915d0da69f5be) |
+| Audit on GenLayer | [`0x4891a9bd...25b95e`](https://explorer-studio.genlayer.com/tx/0x4891a9bdf19a853888c1c009aec216149e372516219b566e025d51ea9025b95e) |
+| Verdict | `CONFIRMED`, `10000` base units, payer `0x959d38cb...6524e2`, anchor block `46862197` |
+
+Search that settlement hash on the dashboard to open the same record. The drawer carries the same verdict, the same GenLayer hash, and the What was checked matrix that produced it.
+
 ### Manual Verification (Advanced)
 
 1. Find a Base Sepolia transaction on `sepolia.basescan.org` using the `transactionHash` from the dashboard.
-2. Find the GenLayer audit transaction on `explorer-studio.genlayer.com` sent to `X402_AUDITOR_ADDRESS = 0xc40f7bADb1E340C78E20CdEf8722114bBEb53e98`.
+2. Find the GenLayer audit transaction on `explorer-studio.genlayer.com` sent to the `X402Auditor` address listed under **Live**.
 3. Call `get_verdicts()` on the contract. The last element is the verdict for the most recent claim.
 4. Cross-check that `claimTransaction` in the contract matches the Base Sepolia hash, and that the dashboard shows the same verdict.
 
@@ -217,19 +273,55 @@ Every verdict is the output of a deterministic function over the same on-chain b
 
 ---
 
+## FAQ
+
+**Is this real data or a mock?**
+
+Real. Every figure in this README is read from the live deployment, and the examples use actual transaction hashes that resolve on BaseScan and on the GenLayer explorer.
+
+**Is any of this on mainnet?**
+
+No. Everything runs on Base Sepolia and GenLayer Studio. No mainnet keys or funds are involved.
+
+**Why GenLayer instead of a server that checks the chain?**
+
+A server is a single machine, and trusting it only renames the problem. Here several independent validators fetch the same receipt and must agree on the same bytes before a verdict is written. See **Why GenLayer, and why not a language model** above.
+
+**What stops a facilitator from faking its record?**
+
+It cannot choose how it is grouped. The registry groups audits by the address that actually broadcast the settlement, read from the chain, so a typed name is a label and never a key. Where a name and an observed address disagree, the disagreement is published instead of resolved.
+
+**Do I need an account or a key to read a verdict?**
+
+No. Reads are public and unauthenticated, so one HTTP GET from a browser or from your own server is enough. See **Live** for the endpoints.
+
+**What if the indexer is wrong or stops running?**
+
+The verdicts are already on chain. The API and the dashboard are caches over that append-only list, so anyone can recompute them and publish a mismatch.
+
+**Does one audit cover every settlement a facilitator makes?**
+
+No, and the scope tag says which is which: `real_facilitator_audit` when the payment ran against that facilitator's own paid resource, `self_probe` when it ran against the internal test resource. Coverage is a sample, not a census.
+
+**What happens when no settlement evidence is found yet?**
+
+The record stays `PENDING_NO_EVIDENCE_YET` and is retried on later cycles. The contract does not treat silence as a failure.
+
+---
+
 ## Tests
 
 The repository ships an offline verification suite that runs automatically on GitHub Actions for every push:
 
-- 12 module self-tests, each proving the module's own contract
-- 8 integration, contract, and API test files (the API is tested through FastAPI's TestClient)
+- 13 module self-tests, each proving the module's own contract
+- 9 integration, contract, and API test files (the API is tested through FastAPI's TestClient), plus a Node test for the dashboard verification checklist
 - Every store write in the suite is redirected to temporary files, so running it never touches the real evidence store, the local SQLite cache, or the remote API
 
 ---
 
 ## Roadmap
 
-1. **Independent Verification** - 3 GenLayer contracts live, consensus verified, dashboard live, per-facilitator real-resource audits implemented.
+1. **Independent Verification** - 3 GenLayer contracts live, consensus verified, dashboard live, per-facilitator real-resource audits implemented (live confirmation pending).
 2. **Resilience** - Completed: pending transaction tracking with check-only retry; extended consensus windows; dynamic scheduler intervals.
 3. **Transparency** - One-click independent verification links in every evidence record.
 4. **Qualitative Layer (Phase D)** - LLM-based comparison of written promises vs. observed behavior, isolated from deterministic verdicts.
@@ -252,8 +344,17 @@ This roadmap reflects the current direction. Additional features and improvement
 
 Proprietary. All rights reserved.
 
+The source is published so the work can be reviewed, audited, and evaluated. It is not licensed for reuse, redistribution, or deployment, in whole or in part, without written permission.
+
 ---
 
-## Status
+## What Is Real Now, and What Is in Progress
 
-This project is **under active development**. The current version is a working prototype on Base Sepolia and GenLayer Studio. Features, interfaces, and supported facilitators may change before the final release. All blockchain activity runs on test networks only (Base Sepolia and GenLayer Studio); no mainnet keys or funds are used.
+Working and verifiable today: the three contracts on GenLayer Studio, the audit pipeline from claim to verdict, the append-only record, the public API, and the dashboard with per-record verification.
+
+In progress, stated plainly:
+
+- **Per-facilitator real-resource audits** are implemented and have produced confirmed records against a facilitator's own paid resource. The live confirmation run is on hold because two facilitators, `x402org-public` and `payai`, are failing on their side.
+- **The qualitative layer (Phase D) has not started.** No language model touches a verdict today, and none is planned inside the deterministic path.
+- **Coverage is partial.** The indexer audits the facilitators it probes on a schedule, so a settlement that was never probed has no record.
+- The prototype runs on **Base Sepolia and GenLayer Studio only**. No mainnet keys or funds are used, and interfaces may change before the final release.
