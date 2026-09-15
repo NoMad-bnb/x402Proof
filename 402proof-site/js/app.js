@@ -684,24 +684,31 @@
       ],
     ];
     const dl = rows.map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd>`).join("");
-    const relayerUrl = /^0x[0-9a-fA-F]{40}$/.test(address)
-      ? "https://explorer-studio.genlayer.com/address/" + address
-      : null;
+    const isBucket = address === "NO_RELAYER_OBSERVED";
+    const isEvmAddress = /^0x[0-9a-fA-F]{40}$/.test(address);
+    const relayerUrl = isEvmAddress ? "https://sepolia.basescan.org/address/" + address : null;
+    const disabledTitle = isBucket
+      ? "This is a bucket label for records with no observed settling relayer, not a chain address"
+      : "Not a valid Base Sepolia address";
+    const bucketHtml = isBucket
+      ? `<p class="action-hint">NO_RELAYER_OBSERVED is a contract-level bucket for records where no settling relayer was observed. It has no chain address, so there is nothing to open on an explorer.</p>`
+      : "";
     const conflictHtml = entry.relayerLabelConflict === true
       ? `<p class="action-hint">relayerLabelConflict: this settling address was named with more than one typed label. A naming inconsistency, published rather than hidden.</p>`
       : "";
     openDrawer("Relayer detail", `
       <dl>${dl}</dl>
       ${conflictHtml}
+      ${bucketHtml}
       <section class="verification-actions">
-        <h3>Independent verification</h3>
+        <h3>Independent Verification</h3>
         <div class="action-buttons">
-          <a class="btn btn-primary" ${relayerUrl ? `href="${relayerUrl}" target="_blank" rel="noopener"` : "disabled"} title="${relayerUrl ? "View on GenLayer Explorer" : "Address is not a valid GenLayer address"}">
-            View on GenLayer Explorer ↗
+          <a class="btn btn-primary" ${relayerUrl ? `href="${relayerUrl}" target="_blank" rel="noopener"` : "disabled"} title="${relayerUrl ? "View the settling address on Base Sepolia" : disabledTitle}">
+            View on BaseScan ↗
           </a>
         </div>
         <p class="action-hint">
-          Grouping by the observed settling address cannot be forged by whoever calls audit(). Recompute by calling <code>get_registry_by_relayer()</code> on the X402Auditor contract and compare to this drawer.
+          The relayer is the Base Sepolia address that broadcast the settlement. Grouping by it cannot be forged by whoever calls audit(). Recompute by calling <code>get_registry_by_relayer()</code> on the X402Auditor contract and compare to this drawer.
         </p>
       </section>
     `);
