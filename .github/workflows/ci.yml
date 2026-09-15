@@ -75,3 +75,7 @@ jobs:
 
       - name: API tests
         run: python test_api_integration.py
+
+      - name: Dashboard checklist test
+        working-directory: .
+        run: node 402proof-site/test_checklist.js

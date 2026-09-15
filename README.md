@@ -150,6 +150,8 @@ Click any evidence record to open its verification side panel, then use the buil
 - **View GenLayer Audit** - opens the audit transaction on GenLayer Explorer.
 - **Verify Verdict On-Chain** - opens the `X402Auditor` contract on GenLayer Explorer, where you can call `get_verdicts()` and match `claimTransaction` to the Base transaction.
 
+Each drawer also carries a **What was checked** matrix listing the components the verdict was built from: transaction found, receipt status, network match, payer, payee, asset, amount within the scheme limit, EIP-3009 authorization presence, and the finality anchor. Each component shows its own pass/fail/unknown state with the observed values, so the verdict reads as a reconstructable judgment instead of an opinion.
+
 If a button is disabled, the required transaction hash was not captured for that record.
 
 ### Manual Verification (Advanced)

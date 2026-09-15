@@ -428,6 +428,15 @@
         const baseUrl = hasBase ? "https://sepolia.basescan.org/tx/" + baseTx : null;
         const genUrl = hasGen ? "https://explorer-studio.genlayer.com/tx/" + genTx : null;
         const contractUrl = "https://explorer-studio.genlayer.com/address/0xc40f7bADb1E340C78E20CdEf8722114bBEb53e98";
+        const checklistItems = window.EvidenceChecklist ? window.EvidenceChecklist.build(rec) : [];
+        const checklistHtml = checklistItems.map((entry) => `
+          <li class="check-item check-${entry.status}">
+            <span class="check-mark" aria-hidden="true">${entry.status === "pass" ? "✓" : entry.status === "fail" ? "✗" : "?"}</span>
+            <span class="check-body">
+              <span class="check-label">${escapeHtml(entry.label)}</span>
+              ${entry.detail ? `<span class="check-detail">${escapeHtml(entry.detail)}</span>` : ""}
+            </span>
+          </li>`).join("");
 
         openDrawer("Verification record", `
           <dl>
@@ -446,6 +455,10 @@
             <dt>Authorization</dt><dd>${auth.found ? `selector ${escapeHtml(auth.selector || "—")}${auth.hasEIP3009Selector ? " · EIP-3009" : ""}` : "not found"}</dd>
             <dt>Resource</dt><dd>${escapeHtml(summary.resourceUrl || "—")}</dd>
           </dl>
+          <section class="checklist">
+            <h3>What was checked</h3>
+            <ul class="check-list">${checklistHtml}</ul>
+          </section>
           <section class="verification-actions">
             <h3>Independent Verification</h3>
             <div class="action-buttons">
