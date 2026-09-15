@@ -543,23 +543,74 @@
     const labelConflicts = summary.labelRelayerConflict || { count: 0, labels: [] };
     const relayerConflicts = summary.relayerLabelConflict || { count: 0, relayers: [] };
 
-    const conflictChips = [];
-    if (relayerConflicts.count) {
-      const names = relayerConflicts.relayers.map((r) => escapeHtml(truncate(String(r), 12, 8))).join(", ");
-      conflictChips.push(
-        `<span class="chip chip-conflict">relayerLabelConflict <strong>${relayerConflicts.count}</strong> · ${names}</span>`
-      );
+    summaryEl.innerHTML = "";
+    if (relayerConflicts.count || labelConflicts.count) {
+      summaryEl.appendChild(buildConflictTile(
+        "Relayer label conflicts",
+        relayerConflicts.count,
+        "settling addresses named with more than one label · view breakdown",
+        () => openConflictsDrawer(data)
+      ));
+      summaryEl.appendChild(buildConflictTile(
+        "Label relayer conflicts",
+        labelConflicts.count,
+        "labels settled from more than one address · view breakdown",
+        () => openConflictsDrawer(data)
+      ));
+    } else {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.textContent = "no conflicts flagged";
+      summaryEl.appendChild(chip);
     }
-    if (labelConflicts.count) {
-      const names = labelConflicts.labels.map((l) => escapeHtml(String(l))).join(", ");
-      conflictChips.push(
-        `<span class="chip chip-conflict">labelRelayerConflict <strong>${labelConflicts.count}</strong> · ${names}</span>`
-      );
-    }
-    summaryEl.innerHTML = conflictChips.join("") ||
-      `<span class="chip">no conflicts flagged</span>`;
 
     renderOnchainList();
+  }
+
+  function buildConflictTile(labelText, count, subText, onClick) {
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = "conflict-card";
+    tile.setAttribute("aria-label", labelText + ": " + count + ", view breakdown");
+    tile.innerHTML = `
+      <p class="stat-label">${escapeHtml(labelText)}</p>
+      <p class="stat-value">${Number(count)}</p>
+      <p class="stat-sub">${escapeHtml(subText)}</p>
+    `;
+    tile.addEventListener("click", onClick);
+    return tile;
+  }
+
+  function openConflictsDrawer(data) {
+    const byRelayer = Array.isArray(data.byRelayer) ? data.byRelayer : [];
+    const byLabel = Array.isArray(data.byLabel) ? data.byLabel : [];
+    const conflictingRelayers = byRelayer.filter((e) => e.relayerLabelConflict === true);
+    const conflictingLabels = byLabel.filter((e) => e.labelRelayerConflict === true);
+    const relayerBlock = conflictingRelayers.map((entry) => `
+      <div class="conflict-row">
+        <div class="ev-hash">${escapeHtml(String(entry.relayer || "unknown"))}</div>
+        <div class="ev-meta">${(entry.labels || []).map((l) => `<span class="chip">${escapeHtml(String(l))}</span>`).join("")}</div>
+      </div>`).join("");
+    const labelBlock = conflictingLabels.map((entry) => `
+      <div class="conflict-row">
+        <div class="ev-hash">${escapeHtml(String(entry.facilitator || "unlabeled"))}</div>
+        <div class="ev-meta">${(entry.relayers || []).map((r) => `<span class="chip mono">${escapeHtml(truncate(String(r), 12, 8))}</span>`).join("")}</div>
+      </div>`).join("");
+    openDrawer("Conflict detail", `
+      <section class="conflict-section">
+        <h3>Relayer label conflicts</h3>
+        <p class="stat-sub">One settling address, more than one typed label. Naming inconsistency, published rather than hidden.</p>
+        ${relayerBlock || `<p class="stat-sub">None in this snapshot.</p>`}
+      </section>
+      <section class="conflict-section">
+        <h3>Label relayer conflicts</h3>
+        <p class="stat-sub">One typed label, more than one settling address. Not proof of anything by itself.</p>
+        ${labelBlock || `<p class="stat-sub">None in this snapshot.</p>`}
+      </section>
+      <p class="action-hint">
+        Recompute both groupings yourself: call <code>get_registry()</code> and <code>get_registry_by_relayer()</code> on the X402Auditor contract and compare the conflict flags.
+      </p>
+    `);
   }
 
   function renderOnchainList() {
@@ -590,7 +641,6 @@
         <div>
           <div class="ev-hash">${escapeHtml(truncate(address, 14, 10))}</div>
           <div class="ev-meta">
-            <span class="chip">labels: ${labels.length ? escapeHtml(labels.join(", ")) : "none"}</span>
             <span class="chip">audits: ${Number(entry.totalRecords ?? 0)}</span>
             <span class="chip">settled: ${Number(entry.settledOnChain ?? 0)}</span>
             <span class="chip">honesty: ${honesty == null ? "n/a" : escapeHtml(String(honesty)) + "%"}</span>
